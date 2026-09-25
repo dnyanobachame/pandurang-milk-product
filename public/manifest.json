@@ -1,0 +1,13 @@
+{
+  "name": "Pandurang Milk Product",
+  "short_name": "Pandurang Milk",
+  "description": "Fresh milk and dairy, delivered across Latur District",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fffdf8",
+  "theme_color": "#3f9b45",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
