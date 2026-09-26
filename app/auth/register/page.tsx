@@ -13,6 +13,10 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Set once signup succeeds but Supabase requires email confirmation
+  // before a session exists — shows the "check your email" screen
+  // instead of pretending the user is logged in.
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
 
   function update<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -21,6 +25,20 @@ export default function RegisterPage() {
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!/^\d{6}$/.test(form.pinCode)) {
+      setError('PIN code must be exactly 6 digits.');
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(form.mobile)) {
+      setError('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    if (form.password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
     setLoading(true);
     const supabase = createClient();
 
@@ -32,7 +50,21 @@ export default function RegisterPage() {
 
     if (signUpError || !signUpData.user) {
       setLoading(false);
-      setError('Could not create your account. The email may already be registered.');
+      const msg = signUpError?.message?.toLowerCase() ?? '';
+      setError(
+        msg.includes('already registered') || msg.includes('already exists')
+          ? 'An account with this email already exists. Try signing in instead.'
+          : 'Could not create your account. Please check your details and try again.'
+      );
+      return;
+    }
+
+    // signUpData.session is null when Supabase requires email
+    // confirmation before issuing a session — never treat the user as
+    // logged in / redirect to /dashboard in that case.
+    if (!signUpData.session) {
+      setLoading(false);
+      setAwaitingConfirmation(true);
       return;
     }
 
@@ -60,6 +92,25 @@ export default function RegisterPage() {
 
     router.push('/dashboard');
     router.refresh();
+  }
+
+  if (awaitingConfirmation) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-cream-50 px-6">
+        <div className="w-full max-w-sm bg-white rounded-xl2 shadow-sm border border-gray-100 p-8 text-center">
+          <h1 className="text-xl font-semibold text-brand-700 mb-2">Check your email</h1>
+          <p className="text-sm text-gray-600 mb-6">
+            Account created successfully. Please verify your email before signing in.
+          </p>
+          <a
+            href="/auth/login"
+            className="inline-block w-full rounded-full bg-brand-600 text-white py-2.5 font-medium hover:bg-brand-700"
+          >
+            Go to Login
+          </a>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -90,7 +141,7 @@ export default function RegisterPage() {
           />
         </div>
 
-        {error && <p className="text-sm text-red-600 mt-4">{error}</p>}
+        {error && <p role="alert" className="text-sm text-red-600 mt-4">{error}</p>}
 
         <button
           type="submit"
