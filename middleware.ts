@@ -55,11 +55,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('role, is_active')
     .eq('id', user.id)
     .single();
+
+  if (profileError) {
+    console.error('[middleware] profile fetch failed:', profileError.message, profileError.code, 'user:', user.id);
+  }
 
   const role = (profile?.role ?? 'customer') as AppRole;
 
