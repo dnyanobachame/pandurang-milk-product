@@ -33,6 +33,7 @@ export default async function AdminDashboard() {
           <h2 className="font-medium mb-3">Quick Links</h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <a href="/admin/orders" className="text-brand-700 hover:underline">Orders</a>
+              <a href="/admin/products" className="text-brand-700 hover:underline">Products</a>
             <a href="/admin/production" className="text-brand-700 hover:underline">Production</a>
             <a href="/admin/production/quality" className="text-brand-700 hover:underline">Quality Control</a>
             <a href="/packing" className="text-brand-700 hover:underline">Packing</a>
@@ -74,3 +75,4 @@ function Card({ label, value, tone }: { label: string; value: string | number; t
     </div>
   );
 }
+

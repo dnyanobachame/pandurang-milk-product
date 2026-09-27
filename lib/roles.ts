@@ -28,6 +28,9 @@ export type AppRole = (typeof APP_ROLES)[number];
  */
 export const ROUTE_ACCESS: Record<string, AppRole[]> = {
   '/admin': ['admin', 'sales_manager', 'accountant', 'customer_support'],
+  // Matches the products_staff_write RLS policy (02_rls.sql) and the
+  // role check in app/actions/products.ts — keep these three in sync.
+  '/admin/products': ['admin', 'sales_manager', 'inventory_manager'],
   '/admin/production/batches': [
     'admin', 'production_manager', 'production_staff', 'quality_control',
     'packing_manager', 'packing_staff',

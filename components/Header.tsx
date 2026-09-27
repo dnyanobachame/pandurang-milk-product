@@ -42,6 +42,10 @@ export function Header() {
   const dashboardHref = profile ? homeRouteForRole(profile.role) : '/dashboard';
 
   const accountMenuItems = [
+    ...(profile?.role === 'admin'
+      ? [{ href: '/admin', label: 'Admin Panel' },
+    { href: '/admin/products', label: 'Product Management' }]
+      : []),
     { href: dashboardHref, label: 'My Dashboard' },
     { href: '/dashboard/orders', label: 'My Orders' },
     { href: '/dashboard/settings', label: 'My Profile / Settings' },
@@ -278,3 +282,5 @@ export function Header() {
     </header>
   );
 }
+
+
