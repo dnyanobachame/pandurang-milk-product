@@ -493,3 +493,16 @@ a {
 .footer-links a:hover {
   color: var(--amul-yellow);
 }
+/* ---------- Floating contact buttons ---------- */
+
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 5.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  body {
+    padding-bottom: 1rem;
+  }
+}
