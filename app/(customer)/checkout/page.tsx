@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useCart } from '@/lib/cart-context';
 import { placeOrder } from '@/app/actions/orders';
 import type { CustomerAddress } from '@/lib/types';
+import { formatAddress } from '@/lib/format-address';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function CheckoutPage() {
                   checked={addressId === a.id}
                   onChange={() => setAddressId(a.id)}
                 />
-                {a.address_line}, {a.village_city}, {a.district} — {a.pin_code}
+                {formatAddress(a)}
               </label>
             ))}
           </div>

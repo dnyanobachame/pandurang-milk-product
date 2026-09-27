@@ -1,5 +1,6 @@
 'use client';
 
+import { formatAddress } from '@/lib/format-address';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { CustomerAddress } from '@/lib/types';
@@ -56,7 +57,7 @@ export default function AddressesPage() {
       <div className="space-y-3 mb-8">
         {addresses.map((a) => (
           <div key={a.id} className="rounded-xl2 border border-gray-100 bg-white p-4 text-sm">
-            {a.address_line}, {a.village_city}, {a.district} — {a.pin_code}
+            {formatAddress(a)}
             {a.is_default && <span className="ml-2 text-xs text-brand-700">(Default)</span>}
           </div>
         ))}

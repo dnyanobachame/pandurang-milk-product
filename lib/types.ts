@@ -10,6 +10,7 @@ export type Product = {
   mrp: number | null;
   image_url: string | null;
   available_quantity: number;
+  min_stock_level?: number;
   delivery_available: boolean;
   is_active: boolean;
 };

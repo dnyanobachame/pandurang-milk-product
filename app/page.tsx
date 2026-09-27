@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { formatProductUnit } from '@/lib/format-unit';
+import { AddToCartButton } from '@/components/AddToCartButton';
+import { ProductWhatsAppButton } from '@/components/ProductWhatsAppButton';
+import { StockBadge } from '@/components/StockBadge';
 
 export const revalidate = 60; // ISR: refresh product list every minute
 
@@ -10,7 +14,9 @@ export default async function HomePage() {
     supabase.from('company_settings').select('*').single(),
     supabase
       .from('products')
-      .select('id, name, name_marathi, selling_price, unit, net_quantity, image_url')
+      .select(
+        'id, name, name_marathi, category_id, sku, unit, net_quantity, selling_price, mrp, image_url, available_quantity, min_stock_level, delivery_available, is_active'
+      )
       .eq('is_active', true)
       .limit(6),
   ]);
@@ -68,8 +74,12 @@ export default async function HomePage() {
         <div className="product-grid">
           {(products ?? []).map((p) => (
             <div key={p.id} className="product-card">
-              <div className="product-image">
+              <div className="product-image overflow-hidden">
                 <span className="badge-fresh">Fresh</span>
+                {p.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />
+                )}
               </div>
               <h3 className="product-name">{p.name}</h3>
               {p.name_marathi && (
@@ -77,8 +87,14 @@ export default async function HomePage() {
               )}
               <p className="product-price">
                 ₹{p.selling_price}{' '}
-                <span className="product-unit">/ {p.net_quantity}{p.unit}</span>
+                <span className="product-unit">/ {formatProductUnit(p.unit, p.net_quantity)}</span>
               </p>
+              <StockBadge
+                availableQuantity={p.available_quantity}
+                lowStockThreshold={p.min_stock_level}
+              />
+              <AddToCartButton product={p} />
+              <ProductWhatsAppButton name={p.name} price={p.selling_price} />
             </div>
           ))}
           {(!products || products.length === 0) && (

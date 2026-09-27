@@ -109,6 +109,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     .single();
 
   if (orderError || !order) {
+    console.error('ORDER INSERT ERROR:', orderError);
     return { error: 'Your order could not be placed. Please try again.' };
   }
 
@@ -117,6 +118,7 @@ export async function placeOrder(input: PlaceOrderInput) {
     .insert(orderItemsPayload.map((i) => ({ ...i, order_id: order.id })));
 
   if (itemsError) {
+    console.error('ORDER ITEMS INSERT ERROR:', itemsError);
     return { error: 'Your order could not be placed. Please try again.' };
   }
 

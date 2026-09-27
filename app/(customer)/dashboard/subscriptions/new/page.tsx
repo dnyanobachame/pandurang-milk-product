@@ -1,5 +1,7 @@
 'use client';
 
+import { formatAddress } from '@/lib/format-address';
+import { formatProductUnit } from '@/lib/format-unit';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { createSubscription } from '@/app/actions/subscriptions';
@@ -62,7 +64,7 @@ export default function NewSubscriptionPage() {
             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 font-normal"
           >
             {products.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.net_quantity}{p.unit})</option>
+              <option key={p.id} value={p.id}>{p.name} ({formatProductUnit(p.unit, p.net_quantity)})</option>
             ))}
           </select>
         </label>
@@ -97,7 +99,7 @@ export default function NewSubscriptionPage() {
             className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 font-normal"
           >
             {addresses.map((a) => (
-              <option key={a.id} value={a.id}>{a.address_line}, {a.village_city}</option>
+              <option key={a.id} value={a.id}>{formatAddress(a)}</option>
             ))}
           </select>
         </label>
