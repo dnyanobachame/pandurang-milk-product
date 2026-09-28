@@ -7,33 +7,62 @@ import { ProductQuantitySelector } from './ProductQuantitySelector';
 import { ProductWhatsAppButton } from './ProductWhatsAppButton';
 
 /**
- * Single source of truth for "how many of this product does the
- * customer currently want" — shared by Add to Cart and the WhatsApp
- * ordering button, so both always agree with what's on screen.
+ * Product ordering controls.
+ *
+ * Quantity is shared between Add to Cart and WhatsApp ordering
+ * so both actions always use the same quantity shown to the customer.
  */
-export function ProductOrderControls({ product }: { product: Product }) {
+export function ProductOrderControls({
+  product,
+}: {
+  product: Product;
+}) {
   const [quantity, setQuantity] = useState(1);
-  const outOfStock = !product.delivery_available || product.available_quantity <= 0;
+
+  const outOfStock =
+    !product.delivery_available ||
+    product.available_quantity <= 0;
 
   if (outOfStock) {
     return (
-      <span className="inline-block text-xs text-gray-400 font-medium mt-2">
-        Currently unavailable
-      </span>
+      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center">
+        <span className="text-xs font-medium text-gray-500">
+          Currently unavailable
+        </span>
+      </div>
     );
   }
 
   return (
-    <div className="mt-2">
-      <div className="flex items-center gap-2">
-        <ProductQuantitySelector
-          quantity={quantity}
-          onChange={setQuantity}
-          maxQuantity={product.available_quantity}
-        />
-        <AddToCartButton product={product} quantity={quantity} />
+    <div className="w-full min-w-0">
+      {/* Quantity + Add to Cart */}
+      <div className="flex w-full min-w-0 flex-col gap-2.5 sm:flex-row sm:items-stretch">
+        {/* Quantity selector */}
+        <div className="w-full shrink-0 sm:w-auto">
+          <ProductQuantitySelector
+            quantity={quantity}
+            onChange={setQuantity}
+            maxQuantity={product.available_quantity}
+          />
+        </div>
+
+        {/* Add to cart */}
+        <div className="min-w-0 flex-1">
+          <AddToCartButton
+            product={product}
+            quantity={quantity}
+          />
+        </div>
       </div>
-      <ProductWhatsAppButton name={product.name} price={product.selling_price} quantity={quantity} />
+
+      {/* WhatsApp */}
+      <div className="mt-2.5 w-full min-w-0">
+        <ProductWhatsAppButton
+          name={product.name}
+          price={product.selling_price}
+          quantity={quantity}
+        />
+      </div>
     </div>
   );
 }

@@ -3,16 +3,18 @@
 import { useCart } from '@/lib/cart-context';
 import type { Product } from '@/lib/types';
 
-/**
- * Purely an "add this quantity to cart" action now — quantity itself is
- * owned by the parent (see ProductOrderControls) so it can be shared
- * with the WhatsApp ordering button instead of each one tracking its own
- * separate state (which previously caused WhatsApp messages to always
- * say "Quantity: 1" regardless of what was selected on screen).
- */
-export function AddToCartButton({ product, quantity }: { product: Product; quantity: number }) {
+export function AddToCartButton({
+  product,
+  quantity,
+}: {
+  product: Product;
+  quantity: number;
+}) {
   const { addItem, items } = useCart();
-  const inCart = items.find((i) => i.productId === product.id);
+
+  const inCart = items.find(
+    (item) => item.productId === product.id
+  );
 
   return (
     <button
@@ -27,9 +29,13 @@ export function AddToCartButton({ product, quantity }: { product: Product; quant
           quantity,
         })
       }
-      className="flex-1 rounded-full bg-brand-600 text-white text-sm font-medium py-1.5 hover:bg-brand-700 transition"
+      className="flex h-10 w-full min-w-0 items-center justify-center overflow-hidden rounded-lg bg-brand-600 px-3 text-sm font-semibold text-white transition hover:bg-brand-700 active:bg-brand-800"
     >
-      {inCart ? `In Cart (${inCart.quantity})` : 'Add to Cart'}
+      <span className="truncate">
+        {inCart
+          ? `In Cart (${inCart.quantity})`
+          : 'Add to Cart'}
+      </span>
     </button>
   );
 }

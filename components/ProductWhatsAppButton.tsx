@@ -1,6 +1,9 @@
 'use client';
 
-import { buildWhatsAppUrl, buildProductOrderMessage } from '@/lib/whatsapp-link';
+import {
+  buildWhatsAppUrl,
+  buildProductOrderMessage,
+} from '@/lib/whatsapp-link';
 import { WhatsAppIcon } from './WhatsAppFloatingButton';
 
 export function ProductWhatsAppButton({
@@ -12,7 +15,16 @@ export function ProductWhatsAppButton({
   price: number;
   quantity?: number;
 }) {
-  const url = buildWhatsAppUrl(buildProductOrderMessage([{ name, quantity, price }]));
+  const url = buildWhatsAppUrl(
+    buildProductOrderMessage([
+      {
+        name,
+        quantity,
+        price,
+      },
+    ])
+  );
+
   if (!url) return null;
 
   return (
@@ -21,10 +33,13 @@ export function ProductWhatsAppButton({
       target="_blank"
       rel="noopener noreferrer"
       aria-label={`Order ${name} on WhatsApp`}
-      className="mt-2 w-full flex items-center justify-center gap-1.5 rounded-full border border-[#25D366] text-[#25D366] text-xs font-medium py-1.5 hover:bg-[#25D366]/5"
+      className="flex h-10 w-full min-w-0 items-center justify-center gap-2 overflow-hidden rounded-lg border border-[#25D366] bg-white px-3 text-sm font-semibold text-[#25D366] transition hover:bg-[#25D366]/5 active:bg-[#25D366]/10"
     >
-      <WhatsAppIcon className="w-3.5 h-3.5" />
-      Order on WhatsApp
+      <WhatsAppIcon className="h-4 w-4 shrink-0" />
+
+      <span className="truncate">
+        Order on WhatsApp
+      </span>
     </a>
   );
 }
