@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://your-domain.example';
+import { SITE_URL } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,7 +7,16 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/dashboard', '/admin', '/packing', '/delivery', '/checkout', '/api'],
+        disallow: [
+          '/dashboard',
+          '/admin',
+          '/packing',
+          '/delivery/',
+          '/checkout',
+          '/cart',
+          '/auth',
+          '/api',
+        ],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,

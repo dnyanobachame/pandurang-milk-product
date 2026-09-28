@@ -1,46 +1,102 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+
 import { ProductOrderControls } from '@/components/ProductOrderControls';
 import { ProductPrice } from '@/components/ProductPrice';
 import { StockBadge } from '@/components/StockBadge';
+import { JsonLd } from '@/components/JsonLd';
 import { formatProductUnit } from '@/lib/format-unit';
+import { getPublicProduct } from '@/lib/seo-data';
+import { productJsonLd, breadcrumbJsonLd } from '@/lib/jsonld';
+import { SITE_NAME, SITE_URL } from '@/lib/seo';
 
 export const revalidate = 60;
 
+type ProductPageProps = {
+  params: {
+    id: string;
+  };
+};
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const product = await getPublicProduct(params.id);
+
+  if (!product) {
+    return {
+      title: 'Product Not Found',
+      robots: {
+        index: false,
+        follow: false,
+      },
+    };
+  }
+
+  const productName = product.name;
+  const categoryName =
+    product.product_categories?.name ||
+    product.product_categories?.name_marathi ||
+    'Dairy Product';
+
+  const description =
+    product.short_description ||
+    product.description ||
+    `Buy ${productName} from ${SITE_NAME}. Fresh dairy products with delivery in selected areas of Latur District, Maharashtra.`;
+
+  const canonical = `${SITE_URL}/products/${product.id}`;
+
+  return {
+    title: `${productName} | Fresh ${categoryName} in Latur`,
+    description,
+    keywords: [
+      productName,
+      `${productName} Latur`,
+      `buy ${productName} online`,
+      `${categoryName} in Latur`,
+      'milk products in Latur',
+      'dairy products in Latur',
+      'Pandurang Milk Product',
+    ],
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      title: `${productName} | ${SITE_NAME}`,
+      description,
+      url: canonical,
+      siteName: SITE_NAME,
+      locale: 'en_IN',
+      type: 'website',
+      ...(product.image_url
+        ? {
+            images: [
+              {
+                url: product.image_url,
+                alt: productName,
+              },
+            ],
+          }
+        : {}),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${productName} | ${SITE_NAME}`,
+      description,
+      ...(product.image_url
+        ? {
+            images: [product.image_url],
+          }
+        : {}),
+    },
+  };
+}
+
 export default async function ProductDetailPage({
   params,
-}: {
-  params: { id: string };
-}) {
-  const supabase = createClient();
-
-  const { data: product } = await supabase
-    .from('products')
-    .select(
-      `
-      id,
-      name,
-      name_marathi,
-      category_id,
-      sku,
-      unit,
-      net_quantity,
-      selling_price,
-      mrp,
-      image_url,
-      description,
-      available_quantity,
-      min_stock_level,
-      delivery_available,
-      is_active,
-      shelf_life_days,
-      storage_requirements
-    `
-    )
-    .eq('id', params.id)
-    .eq('is_active', true)
-    .single();
+}: ProductPageProps) {
+  const product = await getPublicProduct(params.id);
 
   if (!product) {
     notFound();
@@ -50,17 +106,39 @@ export default async function ProductDetailPage({
     product.delivery_available &&
     product.available_quantity > 0;
 
+  const productSchema = productJsonLd(product);
+
+  const breadcrumbSchema = breadcrumbJsonLd([
+    {
+      name: 'Home',
+      url: SITE_URL,
+    },
+    {
+      name: 'Products',
+      url: `${SITE_URL}/products`,
+    },
+    {
+      name: product.name,
+      url: `${SITE_URL}/products/${product.id}`,
+    },
+  ]);
+
   return (
     <main className="max-w-6xl mx-auto px-6 py-10">
+      <JsonLd data={[productSchema, breadcrumbSchema]} />
+
       {/* Breadcrumb */}
-      <div className="mb-6">
+      <nav
+        aria-label="Breadcrumb"
+        className="mb-6"
+      >
         <Link
           href="/products"
           className="text-sm text-brand-700 hover:underline"
         >
           ← Back to Products
         </Link>
-      </div>
+      </nav>
 
       {/* Product */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -71,7 +149,7 @@ export default async function ProductDetailPage({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={product.image_url}
-                alt={product.name}
+                alt={`${product.name} - ${SITE_NAME}`}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -85,7 +163,7 @@ export default async function ProductDetailPage({
         {/* Product information */}
         <div>
           <p className="text-sm text-gray-500 mb-2">
-            Fresh Product
+            Fresh Dairy Product
           </p>
 
           <h1 className="text-3xl font-semibold text-gray-900">
@@ -107,7 +185,8 @@ export default async function ProductDetailPage({
             />
 
             <span className="text-sm text-gray-500">
-              / {formatProductUnit(
+              /{' '}
+              {formatProductUnit(
                 product.unit,
                 product.net_quantity
               )}
@@ -123,10 +202,20 @@ export default async function ProductDetailPage({
           </div>
 
           {/* Description */}
-          {product.description && (
-            <p className="mt-4 text-gray-700 leading-6">
-              {product.description}
-            </p>
+          {(product.short_description || product.description) && (
+            <div className="mt-4">
+              {product.short_description && (
+                <p className="text-gray-800 font-medium leading-6">
+                  {product.short_description}
+                </p>
+              )}
+
+              {product.description && (
+                <p className="mt-2 text-gray-700 leading-6">
+                  {product.description}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Product details */}
@@ -157,6 +246,13 @@ export default async function ProductDetailPage({
               label="SKU"
               value={product.sku}
             />
+
+            {product.product_code && (
+              <Row
+                label="Product code"
+                value={product.product_code}
+              />
+            )}
 
             <Row
               label="Delivery"

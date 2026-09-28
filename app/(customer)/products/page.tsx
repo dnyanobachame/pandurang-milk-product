@@ -1,9 +1,9 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { ProductOrderControls } from '@/components/ProductOrderControls';
 import { ProductPrice } from '@/components/ProductPrice';
 import { StockBadge } from '@/components/StockBadge';
 import { formatProductUnit } from '@/lib/format-unit';
-import Link from 'next/link';
 import type { Product, ProductCategory } from '@/lib/types';
 
 export const revalidate = 30;
@@ -79,54 +79,69 @@ export default async function ProductsPage({
             key={p.id}
             className="rounded-xl2 border border-gray-100 bg-white p-4 shadow-sm"
           >
-            {/* Product image */}
-            <div className="aspect-square rounded-lg bg-cream-100 mb-3 overflow-hidden">
-              {p.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={p.image_url}
-                  alt={p.name}
-                  className="w-full h-full object-cover"
-                />
+            {/* Crawlable product link */}
+            <Link
+              href={`/products/${p.id}`}
+              className="group block"
+              aria-label={`View ${p.name}`}
+            >
+              {/* Product image */}
+              <div className="aspect-square rounded-lg bg-cream-100 mb-3 overflow-hidden">
+                {p.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={p.image_url}
+                    alt={`${p.name} - Pandurang Milk Product`}
+                    className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                    No image available
+                  </div>
+                )}
+              </div>
+
+              {/* Product name */}
+              <h2 className="font-medium text-sm group-hover:text-brand-700 transition-colors">
+                {p.name}
+              </h2>
+
+              {p.name_marathi && (
+                <p className="text-xs text-gray-500">
+                  {p.name_marathi}
+                </p>
               )}
-            </div>
 
-            {/* Product name */}
-            <h3 className="font-medium text-sm">
-              {p.name}
-            </h3>
+              {/* Product price */}
+              <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+                <ProductPrice
+                  price={p.selling_price}
+                  mrp={p.mrp}
+                  size="md"
+                />
 
-            {p.name_marathi && (
-              <p className="text-xs text-gray-500">
-                {p.name_marathi}
-              </p>
-            )}
-
-            {/* Product price */}
-            <div className="mt-1 flex items-baseline gap-2 flex-wrap">
-              <ProductPrice
-                price={p.selling_price}
-                mrp={p.mrp}
-                size="md"
-              />
-
-              <span className="text-xs text-gray-500">
-                / {formatProductUnit(p.unit, p.net_quantity)}
-              </span>
-            </div>
+                <span className="text-xs text-gray-500">
+                  / {formatProductUnit(p.unit, p.net_quantity)}
+                </span>
+              </div>
+            </Link>
 
             {/* Stock */}
-            <StockBadge
-              availableQuantity={p.available_quantity}
-              lowStockThreshold={
-                (p as unknown as {
-                  min_stock_level?: number;
-                }).min_stock_level
-              }
-            />
+            <div className="mt-2">
+              <StockBadge
+                availableQuantity={p.available_quantity}
+                lowStockThreshold={
+                  (p as unknown as {
+                    min_stock_level?: number;
+                  }).min_stock_level
+                }
+              />
+            </div>
 
             {/* Quantity + Cart + WhatsApp */}
-            <ProductOrderControls product={p} />
+            <div className="mt-2">
+              <ProductOrderControls product={p} />
+            </div>
           </div>
         ))}
 

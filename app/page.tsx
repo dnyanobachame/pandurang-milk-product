@@ -4,25 +4,46 @@ import { formatProductUnit } from '@/lib/format-unit';
 import { ProductOrderControls } from '@/components/ProductOrderControls';
 import { ProductPrice } from '@/components/ProductPrice';
 import { StockBadge } from '@/components/StockBadge';
+import { JsonLd } from '@/components/JsonLd';
+import { getSeoBusinessData } from '@/lib/seo-data';
+import {
+  organizationJsonLd,
+  localBusinessJsonLd,
+} from '@/lib/jsonld';
 
 export const revalidate = 60; // ISR: refresh product list every minute
 
 export default async function HomePage() {
   const supabase = createClient();
 
-  const [{ data: settings }, { data: products }] = await Promise.all([
-    supabase.from('company_settings').select('*').single(),
-    supabase
-      .from('products')
-      .select(
-        'id, name, name_marathi, category_id, sku, unit, net_quantity, selling_price, mrp, image_url, available_quantity, min_stock_level, delivery_available, is_active'
-      )
-      .eq('is_active', true)
-      .limit(6),
-  ]);
+  const [{ data: settings }, { data: products }, seoBusiness] =
+    await Promise.all([
+      supabase.from('company_settings').select('*').single(),
+
+      supabase
+        .from('products')
+        .select(
+          'id, name, name_marathi, category_id, sku, unit, net_quantity, selling_price, mrp, image_url, available_quantity, min_stock_level, delivery_available, is_active'
+        )
+        .eq('is_active', true)
+        .limit(6),
+
+      getSeoBusinessData(),
+    ]);
+
+  const organizationSchema = organizationJsonLd();
+
+  const localBusinessSchema = localBusinessJsonLd(
+    seoBusiness.deliveryAreas
+  );
 
   return (
     <main>
+      {/* SEO structured data */}
+      <JsonLd
+        data={[organizationSchema, localBusinessSchema]}
+      />
+
       {/* Hero */}
       <section className="hero">
         <div className="hero-inner">

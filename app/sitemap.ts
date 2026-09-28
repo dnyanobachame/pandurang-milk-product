@@ -1,30 +1,77 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@/lib/supabase/server';
+import { SITE_URL } from '@/lib/seo';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://your-domain.example';
-
-/** Next.js reads this at /sitemap.xml. */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = createClient();
-  const { data: products } = await supabase.from('products').select('id, updated_at').eq('is_active', true);
+
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('id, updated_at')
+    .eq('is_active', true);
 
   const staticEntries: MetadataRoute.Sitemap = [
-    { url: `${SITE_URL}/`, changeFrequency: 'daily', priority: 1 },
-    { url: `${SITE_URL}/products`, changeFrequency: 'daily', priority: 0.9 },
-    { url: `${SITE_URL}/about`, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${SITE_URL}/contact`, changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${SITE_URL}/terms`, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${SITE_URL}/privacy`, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${SITE_URL}/refund-policy`, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${SITE_URL}/shipping-policy`, changeFrequency: 'yearly', priority: 0.2 },
+    {
+      url: `${SITE_URL}/`,
+      changeFrequency: 'daily',
+      priority: 1,
+    },
+    {
+      url: `${SITE_URL}/products`,
+      changeFrequency: 'daily',
+      priority: 0.9,
+    },
+    {
+      url: `${SITE_URL}/about`,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    {
+      url: `${SITE_URL}/contact`,
+      changeFrequency: 'monthly',
+      priority: 0.5,
+    },
+    {
+      url: `${SITE_URL}/terms`,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
+    {
+      url: `${SITE_URL}/privacy`,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
+    {
+      url: `${SITE_URL}/refund-policy`,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
+    {
+      url: `${SITE_URL}/shipping-policy`,
+      changeFrequency: 'yearly',
+      priority: 0.2,
+    },
   ];
 
-  const productEntries: MetadataRoute.Sitemap = (products ?? []).map((p) => ({
-    url: `${SITE_URL}/products/${p.id}`,
-    changeFrequency: 'weekly',
-    priority: 0.7,
-    lastModified: p.updated_at ? new Date(p.updated_at) : undefined,
-  }));
+  if (error || !products) {
+    console.error(
+      '[sitemap] Failed to load products:',
+      error?.message
+    );
+
+    return staticEntries;
+  }
+
+  const productEntries: MetadataRoute.Sitemap = products.map(
+    (product) => ({
+      url: `${SITE_URL}/products/${product.id}`,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+      lastModified: product.updated_at
+        ? new Date(product.updated_at)
+        : undefined,
+    })
+  );
 
   return [...staticEntries, ...productEntries];
 }
