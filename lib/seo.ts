@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ??
-  'https://pandurang-milk-product.vercel.app';
+  'https://pandurangmilk.in';
 
 export const SITE_NAME = 'Pandurang Milk Product';
 

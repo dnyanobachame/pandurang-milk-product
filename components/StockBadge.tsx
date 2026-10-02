@@ -5,15 +5,45 @@ export function StockBadge({
   availableQuantity: number;
   lowStockThreshold?: number;
 }) {
-  if (availableQuantity <= 0) {
+  const safeQuantity =
+    Number.isFinite(availableQuantity)
+      ? Math.max(0, Math.floor(availableQuantity))
+      : 0;
+
+  const safeThreshold =
+    Number.isFinite(lowStockThreshold)
+      ? Math.max(0, Math.floor(lowStockThreshold))
+      : 10;
+
+  if (safeQuantity <= 0) {
     return (
-      <p className="text-xs text-gray-400 mt-1">
+      <p
+        className="mt-1 text-xs font-medium text-gray-500"
+        role="status"
+      >
         Currently unavailable — available again soon
       </p>
     );
   }
-  if (availableQuantity <= lowStockThreshold) {
-    return <p className="text-xs text-amber-600 mt-1">Only {availableQuantity} left</p>;
+
+  if (safeQuantity <= safeThreshold) {
+    return (
+      <p
+        className="mt-1 text-xs font-medium text-amber-600"
+        role="status"
+      >
+        Only {safeQuantity} left
+      </p>
+    );
   }
-  return <p className="text-xs text-green-700 mt-1">✓ Available Today</p>;
+
+  return (
+    <p
+      className="mt-1 text-xs font-medium text-green-700"
+      role="status"
+    >
+      <span aria-hidden="true">✓ </span>
+      Available Today
+    </p>
+  );
 }

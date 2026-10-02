@@ -1,49 +1,105 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingBag, User } from 'lucide-react';
+
+import {
+  Home,
+  ShoppingBag,
+  User,
+} from 'lucide-react';
+
 import { useAuth } from '@/lib/auth-context';
-import { buildWhatsAppUrl, WHATSAPP_GENERAL_MESSAGE } from '@/lib/whatsapp-link';
-import { WhatsAppIcon } from './WhatsAppFloatingButton';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
-  const { user, profile } = useAuth();
-  const whatsappUrl = buildWhatsAppUrl(WHATSAPP_GENERAL_MESSAGE);
 
-  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+  const { user, profile } = useAuth();
+
+  const isActive = (href: string) => {
+    if (href === '/') {
+      return pathname === '/';
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  const userLabel =
+    user && profile
+      ? profile.full_name?.trim().split(/\s+/)[0] || 'Account'
+      : 'Login';
+
+  const accountActive =
+    isActive('/dashboard') ||
+    isActive('/auth');
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 flex items-stretch"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      aria-label="Primary"
+      className="
+        mobile-bottom-nav
+        md:hidden
+        fixed
+        bottom-0
+        left-0
+        right-0
+        z-50
+        flex
+        w-full
+        max-w-full
+        min-w-0
+        items-stretch
+        overflow-hidden
+        border-t
+        border-gray-200
+        bg-white
+        shadow-[0_-4px_16px_rgba(0,0,0,0.06)]
+      "
+      style={{
+        paddingBottom:
+          'env(safe-area-inset-bottom, 0px)',
+      }}
+      aria-label="Primary navigation"
     >
-      <NavTab href="/" label="Home" active={isActive('/')}>
-        <Home size={20} />
-      </NavTab>
-      <NavTab href="/products" label="Shop" active={isActive('/products')}>
-        <ShoppingBag size={20} />
-      </NavTab>
-      {whatsappUrl && (
-        <a
-          href={whatsappUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="Chat with Pandurang Milk Product on WhatsApp"
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-[#25D366]"
-        >
-          <WhatsAppIcon className="w-5 h-5" />
-          <span className="text-[10px] font-medium">WhatsApp</span>
-        </a>
-      )}
       <NavTab
-        href={user ? '/dashboard' : '/auth/login'}
-        label={user && profile ? profile.full_name.split(' ')[0] : 'Login'}
-        active={isActive('/dashboard') || isActive('/auth')}
+        href="/"
+        label="Home"
+        active={isActive('/')}
       >
-        <User size={20} />
+        <Home
+          size={21}
+          strokeWidth={isActive('/') ? 2.5 : 2}
+        />
+      </NavTab>
+
+      <NavTab
+        href="/products"
+        label="Shop"
+        active={isActive('/products')}
+      >
+        <ShoppingBag
+          size={21}
+          strokeWidth={
+            isActive('/products') ? 2.5 : 2
+          }
+        />
+      </NavTab>
+
+      <NavTab
+        href={
+          user
+            ? '/dashboard'
+            : '/auth/login'
+        }
+        label={userLabel}
+        active={accountActive}
+      >
+        <User
+          size={21}
+          strokeWidth={
+            accountActive ? 2.5 : 2
+          }
+        />
       </NavTab>
     </nav>
   );
@@ -58,17 +114,68 @@ function NavTab({
   href: string;
   label: string;
   active: boolean;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Link
       href={href}
-      className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2 min-w-0 ${
-        active ? 'text-brand-700' : 'text-gray-500'
-      }`}
+      aria-current={
+        active ? 'page' : undefined
+      }
+      className={`
+        flex
+        min-h-[60px]
+        min-w-0
+        flex-1
+        shrink
+        flex-col
+        items-center
+        justify-center
+        gap-1
+        overflow-hidden
+        px-1
+        py-2
+        transition-colors
+        active:bg-gray-50
+        ${
+          active
+            ? 'text-brand-700'
+            : 'text-gray-500'
+        }
+      `}
     >
-      {children}
-      <span className="text-[10px] font-medium truncate max-w-full px-1">{label}</span>
+      <span
+        className={`
+          flex
+          h-9
+          w-9
+          shrink-0
+          items-center
+          justify-center
+          rounded-full
+          ${
+            active
+              ? 'bg-green-50'
+              : ''
+          }
+        `}
+      >
+        {children}
+      </span>
+
+      <span
+        className="
+          block
+          max-w-full
+          truncate
+          px-1
+          text-[10px]
+          font-semibold
+          leading-none
+        "
+      >
+        {label}
+      </span>
     </Link>
   );
 }

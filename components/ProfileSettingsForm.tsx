@@ -15,103 +15,263 @@ export function ProfileSettingsForm({
   avatarUrl: string | null;
 }) {
   const router = useRouter();
+
   const [fullName, setFullName] = useState(initialFullName);
   const [mobile, setMobile] = useState(initialMobile);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
-  const [resettingPassword, setResettingPassword] = useState(false);
+  const [resettingPassword, setResettingPassword] =
+    useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const [message, setMessage] = useState<{
+    type: 'ok' | 'error';
+    text: string;
+  } | null>(null);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setMessage(null);
 
-    const result = await updateMyProfile({ fullName, mobile, avatarUrl });
-
-    setSaving(false);
-    setMessage(
-      result.error
-        ? { type: 'error', text: result.error }
-        : { type: 'ok', text: 'Changes saved.' }
-    );
-    if (!result.error) router.refresh();
-  }
-
-  async function handleChangePassword() {
-    setResettingPassword(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user?.email) {
-      setResettingPassword(false);
+    if (saving || resettingPassword || loggingOut) {
       return;
     }
 
-    await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
-    });
-    setResettingPassword(false);
-    setMessage({ type: 'ok', text: 'Password reset link sent to your email.' });
+    const trimmedName = fullName.trim();
+    const trimmedMobile = mobile.trim();
+
+    if (!trimmedName) {
+      setMessage({
+        type: 'error',
+        text: 'Please enter your full name.',
+      });
+      return;
+    }
+
+    if (!trimmedMobile) {
+      setMessage({
+        type: 'error',
+        text: 'Please enter your mobile number.',
+      });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      const result = await updateMyProfile({
+        fullName: trimmedName,
+        mobile: trimmedMobile,
+        avatarUrl,
+      });
+
+      if (result.error) {
+        setMessage({
+          type: 'error',
+          text: result.error,
+        });
+        return;
+      }
+
+      setFullName(trimmedName);
+      setMobile(trimmedMobile);
+
+      setMessage({
+        type: 'ok',
+        text: 'Changes saved successfully.',
+      });
+
+      router.refresh();
+    } catch {
+      setMessage({
+        type: 'error',
+        text: 'Something went wrong while saving your profile. Please try again.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleChangePassword() {
+    if (saving || resettingPassword || loggingOut) {
+      return;
+    }
+
+    setResettingPassword(true);
+    setMessage(null);
+
+    try {
+      const supabase = createClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        setMessage({
+          type: 'error',
+          text: 'Unable to find your account email. Please try again.',
+        });
+        return;
+      }
+
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+          user.email,
+          {
+            redirectTo: `${window.location.origin}/auth/reset-password`,
+          }
+        );
+
+      if (error) {
+        setMessage({
+          type: 'error',
+          text: error.message || 'Unable to send the password reset link.',
+        });
+        return;
+      }
+
+      setMessage({
+        type: 'ok',
+        text: 'Password reset link sent to your email.',
+      });
+    } catch {
+      setMessage({
+        type: 'error',
+        text: 'Something went wrong while sending the password reset link.',
+      });
+    } finally {
+      setResettingPassword(false);
+    }
   }
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    if (saving || resettingPassword || loggingOut) {
+      return;
+    }
+
+    setLoggingOut(true);
+    setMessage(null);
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        setMessage({
+          type: 'error',
+          text: 'Unable to log out. Please try again.',
+        });
+        return;
+      }
+
+      router.push('/');
+      router.refresh();
+    } catch {
+      setMessage({
+        type: 'error',
+        text: 'Something went wrong while logging out.',
+      });
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
+  const initial =
+    fullName.trim().charAt(0).toUpperCase() || 'U';
+
+  const busy =
+    saving || resettingPassword || loggingOut;
+
   return (
-    <form onSubmit={handleSave} className="bg-white rounded-xl2 border border-gray-100 shadow-sm p-6">
-      <div className="flex items-center gap-4 mb-6">
+    <form
+      onSubmit={handleSave}
+      className="w-full rounded-xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6"
+    >
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
+          <img
+            src={avatarUrl}
+            alt=""
+            className="h-16 w-16 shrink-0 rounded-full object-cover"
+          />
         ) : (
-          <span className="w-16 h-16 rounded-full bg-brand-100 text-brand-700 text-2xl font-semibold flex items-center justify-center">
-            {fullName.charAt(0).toUpperCase()}
+          <span
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-100 text-2xl font-semibold text-brand-700"
+            aria-hidden="true"
+          >
+            {initial}
           </span>
         )}
-        <p className="text-sm text-gray-500">
-          Photo uploads aren't available yet — this shows your initial until then.
+
+        <p className="text-sm leading-5 text-gray-500">
+          Photo uploads aren't available yet — this shows your
+          initial until then.
         </p>
       </div>
 
-      <label className="block text-sm font-medium mb-1" htmlFor="fullName">
-        Full Name
-      </label>
-      <input
-        id="fullName"
-        value={fullName}
-        onChange={(e) => setFullName(e.target.value)}
-        required
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 mb-4"
-      />
+      <div className="space-y-4">
+        <div>
+          <label
+            className="mb-1.5 block text-sm font-medium text-gray-700"
+            htmlFor="fullName"
+          >
+            Full Name
+          </label>
 
-      <label className="block text-sm font-medium mb-1" htmlFor="mobile">
-        Mobile Number
-      </label>
-      <input
-        id="mobile"
-        value={mobile}
-        onChange={(e) => setMobile(e.target.value)}
-        required
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 mb-4"
-      />
+          <input
+            id="fullName"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            autoComplete="name"
+            disabled={busy}
+            className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
+          />
+        </div>
+
+        <div>
+          <label
+            className="mb-1.5 block text-sm font-medium text-gray-700"
+            htmlFor="mobile"
+          >
+            Mobile Number
+          </label>
+
+          <input
+            id="mobile"
+            type="tel"
+            value={mobile}
+            onChange={(e) => setMobile(e.target.value)}
+            required
+            inputMode="tel"
+            autoComplete="tel"
+            disabled={busy}
+            className="min-h-11 w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
+          />
+        </div>
+      </div>
 
       {message && (
-        <p className={`text-sm mb-4 ${message.type === 'error' ? 'text-red-600' : 'text-green-700'}`}>
+        <div
+          role={message.type === 'error' ? 'alert' : 'status'}
+          aria-live="polite"
+          className={`mt-4 rounded-lg border px-3 py-2.5 text-sm ${
+            message.type === 'error'
+              ? 'border-red-200 bg-red-50 text-red-700'
+              : 'border-green-200 bg-green-50 text-green-700'
+          }`}
+        >
           {message.text}
-        </p>
+        </div>
       )}
 
-      <div className="flex flex-wrap gap-3">
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <button
           type="submit"
-          disabled={saving}
-          className="rounded-full bg-brand-600 text-white px-5 py-2.5 font-medium hover:bg-brand-700 disabled:opacity-60"
+          disabled={busy}
+          className="min-h-11 w-full rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
           {saving ? 'Saving…' : 'Save Changes'}
         </button>
@@ -119,18 +279,21 @@ export function ProfileSettingsForm({
         <button
           type="button"
           onClick={handleChangePassword}
-          disabled={resettingPassword}
-          className="rounded-full border border-gray-300 px-5 py-2.5 font-medium hover:bg-gray-50 disabled:opacity-60"
+          disabled={busy}
+          className="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          {resettingPassword ? 'Sending…' : 'Change Password'}
+          {resettingPassword
+            ? 'Sending…'
+            : 'Change Password'}
         </button>
 
         <button
           type="button"
           onClick={handleLogout}
-          className="rounded-full border border-red-200 text-red-600 px-5 py-2.5 font-medium hover:bg-red-50"
+          disabled={busy}
+          className="min-h-11 w-full rounded-lg border border-red-200 bg-white px-5 py-2.5 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
         >
-          Logout
+          {loggingOut ? 'Logging out…' : 'Logout'}
         </button>
       </div>
     </form>

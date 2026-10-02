@@ -4,7 +4,7 @@ import { ProductOrderControls } from '@/components/ProductOrderControls';
 import { ProductPrice } from '@/components/ProductPrice';
 import { StockBadge } from '@/components/StockBadge';
 import { formatProductUnit } from '@/lib/format-unit';
-import { createPageMetadata } from '@/lib/seo';
+import { absoluteUrl, createPageMetadata } from '@/lib/seo';
 import type { Product } from '@/lib/types';
 import { JsonLd } from '@/components/JsonLd';
 
@@ -55,19 +55,19 @@ export default async function BuffaloMilkPage() {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: 'https://pandurangmilk.in/',
+        item: absoluteUrl('/'),
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Milk',
-        item: 'https://pandurangmilk.in/milk',
+        item: absoluteUrl('/milk'),
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: 'Buffalo Milk',
-        item: 'https://pandurangmilk.in/buffalo-milk',
+        item: absoluteUrl('/buffalo-milk'),
       },
     ],
   };

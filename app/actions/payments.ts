@@ -2,12 +2,37 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
 const PAYMENT_STAFF_ROLES = [
   'admin',
   'accountant',
   'sales_manager',
 ];
+
+const OrderIdSchema = z.string().uuid();
+
+const TransactionIdSchema = z
+  .string()
+  .trim()
+  .min(
+    6,
+    'UPI transaction ID looks too short.',
+  )
+  .max(
+    100,
+    'UPI transaction ID is too long.',
+  )
+  .regex(
+    /^[A-Za-z0-9._-]+$/,
+    'UPI transaction ID contains invalid characters.',
+  );
+
+function validateOrderId(orderId: string) {
+  return OrderIdSchema.safeParse(
+    String(orderId ?? '').trim(),
+  );
+}
 
 /**
  * Customer submits a completed UPI payment.
@@ -22,7 +47,7 @@ const PAYMENT_STAFF_ROLES = [
  */
 export async function submitPaymentClaim(
   orderId: string,
-  transactionId: string
+  transactionId: string,
 ) {
   const supabase = createClient();
 
@@ -36,39 +61,34 @@ export async function submitPaymentClaim(
     };
   }
 
-  if (!orderId) {
+  const parsedOrderId =
+    validateOrderId(orderId);
+
+  if (!parsedOrderId.success) {
     return {
       error: 'Invalid order.',
     };
   }
 
-  // Validate transaction ID on the server.
-  const cleanTransactionId = transactionId?.trim();
+  const cleanOrderId =
+    parsedOrderId.data;
 
-  if (!cleanTransactionId) {
+  const parsedTransaction =
+    TransactionIdSchema.safeParse(
+      transactionId,
+    );
+
+  if (!parsedTransaction.success) {
     return {
-      error: 'Please enter your UPI transaction ID.',
+      error:
+        parsedTransaction.error.errors[0]
+          ?.message ??
+        'Please enter a valid UPI transaction ID.',
     };
   }
 
-  if (cleanTransactionId.length < 6) {
-    return {
-      error: 'UPI transaction ID looks too short.',
-    };
-  }
-
-  if (cleanTransactionId.length > 100) {
-    return {
-      error: 'UPI transaction ID is too long.',
-    };
-  }
-
-  // Allow common UPI transaction/reference formats.
-  if (!/^[A-Za-z0-9._-]+$/.test(cleanTransactionId)) {
-    return {
-      error: 'UPI transaction ID contains invalid characters.',
-    };
-  }
+  const cleanTransactionId =
+    parsedTransaction.data;
 
   // Fetch the payment belonging to this customer.
   const {
@@ -77,29 +97,35 @@ export async function submitPaymentClaim(
   } = await supabase
     .from('payments')
     .select(
-      'id, order_id, customer_id, payment_method, status, transaction_id'
+      'id, order_id, customer_id, payment_method, status, transaction_id',
     )
-    .eq('order_id', orderId)
+    .eq('order_id', cleanOrderId)
     .eq('customer_id', user.id)
     .single();
 
   if (paymentLookupError || !payment) {
     return {
-      error: 'Payment record not found for this order.',
+      error:
+        'Payment record not found for this order.',
     };
   }
 
   // COD orders must never use the UPI payment-claim action.
-  if (payment.payment_method !== 'upi_qr') {
+  if (
+    payment.payment_method !==
+    'upi_qr'
+  ) {
     return {
-      error: 'This order does not use UPI payment.',
+      error:
+        'This order does not use UPI payment.',
     };
   }
 
   // Already paid.
   if (payment.status === 'paid') {
     return {
-      error: 'This payment has already been verified.',
+      error:
+        'This payment has already been verified.',
     };
   }
 
@@ -107,27 +133,35 @@ export async function submitPaymentClaim(
   if (
     payment.status === 'failed' ||
     payment.status === 'refunded' ||
-    payment.status === 'partially_refunded'
+    payment.status ===
+      'partially_refunded'
   ) {
     return {
-      error: 'This payment cannot be submitted.',
+      error:
+        'This payment cannot be submitted.',
     };
   }
 
   // Already submitted.
-  if (payment.status === 'payment_submitted') {
+  if (
+    payment.status ===
+    'payment_submitted'
+  ) {
     return {
-      error: 'This payment is already awaiting verification.',
+      error:
+        'This payment is already awaiting verification.',
     };
   }
 
   // Only pending/payment_initiated can become payment_submitted.
   if (
     payment.status !== 'pending' &&
-    payment.status !== 'payment_initiated'
+    payment.status !==
+      'payment_initiated'
   ) {
     return {
-      error: 'This payment cannot be submitted in its current state.',
+      error:
+        'This payment cannot be submitted in its current state.',
     };
   }
 
@@ -141,19 +175,29 @@ export async function submitPaymentClaim(
   } = await supabase
     .from('payments')
     .select('id')
-    .eq('transaction_id', cleanTransactionId)
+    .eq(
+      'transaction_id',
+      cleanTransactionId,
+    )
     .neq('id', payment.id)
     .maybeSingle();
 
   if (transactionLookupError) {
+    console.error(
+      '[PAYMENT CLAIM] TRANSACTION LOOKUP ERROR:',
+      transactionLookupError,
+    );
+
     return {
-      error: 'Could not validate the transaction ID. Please try again.',
+      error:
+        'Could not validate the transaction ID. Please try again.',
     };
   }
 
   if (existingTransaction) {
     return {
-      error: 'This UPI transaction ID has already been submitted.',
+      error:
+        'This UPI transaction ID has already been submitted.',
     };
   }
 
@@ -171,53 +215,74 @@ export async function submitPaymentClaim(
     .from('payments')
     .update({
       status: 'payment_submitted',
-      transaction_id: cleanTransactionId,
+      transaction_id:
+        cleanTransactionId,
     })
     .eq('id', payment.id)
-    .eq('customer_id', user.id)
-    .in('status', ['pending', 'payment_initiated'])
+    .eq(
+      'customer_id',
+      user.id,
+    )
+    .in('status', [
+      'pending',
+      'payment_initiated',
+    ])
     .select('id')
     .maybeSingle();
 
   if (updateError) {
-    console.error('[PAYMENT CLAIM] UPDATE ERROR', {
-      paymentId: payment.id,
-      error: updateError.message,
-      details: updateError.details,
-      hint: updateError.hint,
-      code: updateError.code,
-    });
+    console.error(
+      '[PAYMENT CLAIM] UPDATE ERROR',
+      {
+        paymentId: payment.id,
+        error: updateError.message,
+        details:
+          updateError.details,
+        hint: updateError.hint,
+        code: updateError.code,
+      },
+    );
 
     return {
-      error: 'Could not record your payment. Please try again.',
+      error:
+        'Could not record your payment. Please try again.',
     };
   }
 
   if (!updatedPayment) {
     return {
-      error: 'This payment was already submitted. Please refresh the page.',
+      error:
+        'This payment was already submitted. Please refresh the page.',
     };
   }
 
-  revalidatePath(`/checkout/payment/${orderId}`);
-  revalidatePath('/dashboard/orders');
+  revalidatePath(
+    `/checkout/payment/${cleanOrderId}`,
+  );
+
+  revalidatePath(
+    '/dashboard/orders',
+  );
 
   return {
     ok: true,
   };
 }
+
 /**
  * Admin/staff-only:
  * Verify a submitted UPI QR payment.
  *
  * This action:
- * 1. Requires an authorized staff role.
+ * 1. Requires an authorized ACTIVE staff role.
  * 2. Requires a UPI payment.
  * 3. Requires payment_submitted status.
  * 4. Marks the payment as paid.
  * 5. Confirms the order.
  */
-export async function adminVerifyPayment(orderId: string) {
+export async function adminVerifyPayment(
+  orderId: string,
+) {
   const supabase = createClient();
 
   const {
@@ -230,26 +295,39 @@ export async function adminVerifyPayment(orderId: string) {
     };
   }
 
-  if (!orderId) {
+  const parsedOrderId =
+    validateOrderId(orderId);
+
+  if (!parsedOrderId.success) {
     return {
       error: 'Invalid order.',
     };
   }
 
-  // Server-side role check.
-  const { data: profile, error: profileError } = await supabase
+  const cleanOrderId =
+    parsedOrderId.data;
+
+  // Server-side role + ACTIVE status check.
+  const {
+    data: profile,
+    error: profileError,
+  } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('id', user.id)
     .single();
 
   if (
     profileError ||
     !profile ||
-    !PAYMENT_STAFF_ROLES.includes(profile.role)
+    profile.is_active !== true ||
+    !PAYMENT_STAFF_ROLES.includes(
+      profile.role,
+    )
   ) {
     return {
-      error: 'You are not authorized to verify payments.',
+      error:
+        'You are not authorized to verify payments.',
     };
   }
 
@@ -260,34 +338,47 @@ export async function adminVerifyPayment(orderId: string) {
   } = await supabase
     .from('payments')
     .select(
-      'id, order_id, customer_id, payment_method, status, amount, transaction_id'
+      'id, order_id, customer_id, payment_method, status, amount, transaction_id',
     )
-    .eq('order_id', orderId)
+    .eq('order_id', cleanOrderId)
     .single();
 
-  if (paymentLookupError || !payment) {
+  if (
+    paymentLookupError ||
+    !payment
+  ) {
     return {
-      error: 'Payment record not found.',
+      error:
+        'Payment record not found.',
     };
   }
 
   // Admin verification is only for UPI QR payments.
-  if (payment.payment_method !== 'upi_qr') {
+  if (
+    payment.payment_method !==
+    'upi_qr'
+  ) {
     return {
-      error: 'Only UPI payments can be manually verified.',
+      error:
+        'Only UPI payments can be manually verified.',
     };
   }
 
   // Prevent approving a payment that the customer never submitted.
-  if (payment.status !== 'payment_submitted') {
+  if (
+    payment.status !==
+    'payment_submitted'
+  ) {
     if (payment.status === 'paid') {
       return {
-        error: 'This payment has already been verified.',
+        error:
+          'This payment has already been verified.',
       };
     }
 
     return {
-      error: 'This payment has not been submitted for verification.',
+      error:
+        'This payment has not been submitted for verification.',
     };
   }
 
@@ -299,7 +390,8 @@ export async function adminVerifyPayment(orderId: string) {
     };
   }
 
-  const now = new Date().toISOString();
+  const now =
+    new Date().toISOString();
 
   /*
    * First update the payment.
@@ -319,44 +411,142 @@ export async function adminVerifyPayment(orderId: string) {
       paid_at: now,
     })
     .eq('id', payment.id)
-    .eq('status', 'payment_submitted')
+    .eq(
+      'status',
+      'payment_submitted',
+    )
     .select('id')
     .maybeSingle();
 
   if (paymentError) {
+    console.error(
+      '[PAYMENT VERIFY] PAYMENT UPDATE ERROR:',
+      paymentError,
+    );
+
     return {
-      error: 'Could not verify this payment.',
+      error:
+        'Could not verify this payment.',
     };
   }
 
   if (!updatedPayment) {
     return {
-      error: 'This payment was already processed.',
+      error:
+        'This payment was already processed.',
     };
   }
 
   /*
-   * Then confirm the order.
+   * Confirm the order only if it is still awaiting payment.
    */
-  const { error: orderError } = await supabase
+  const {
+    data: updatedOrder,
+    error: orderError,
+  } = await supabase
     .from('orders')
     .update({
       payment_status: 'paid',
       order_status: 'confirmed',
+      updated_at: now,
     })
-    .eq('id', orderId)
-    .eq('payment_status', 'pending');
+    .eq('id', cleanOrderId)
+    .eq(
+      'payment_status',
+      'pending',
+    )
+    .select('id')
+    .maybeSingle();
 
   if (orderError) {
+    console.error(
+      '[PAYMENT VERIFY] ORDER UPDATE ERROR:',
+      orderError,
+    );
+
+    /*
+     * Attempt to restore the payment to its previous
+     * state because the order could not be confirmed.
+     *
+     * The conditional filter prevents us from overwriting
+     * a payment that may have been changed concurrently.
+     */
+    const { error: rollbackError } =
+      await supabase
+        .from('payments')
+        .update({
+          status:
+            'payment_submitted',
+          verified_by: null,
+          verified_at: null,
+          paid_at: null,
+        })
+        .eq('id', payment.id)
+        .eq('status', 'paid');
+
+    if (rollbackError) {
+      console.error(
+        '[PAYMENT VERIFY] ROLLBACK ERROR:',
+        rollbackError,
+      );
+    }
+
     return {
       error:
-        'Payment was verified, but the order could not be confirmed. Please check the order before retrying.',
+        'Payment verification could not be completed. Please check the order before retrying.',
     };
   }
 
-  revalidatePath('/admin/orders');
-  revalidatePath('/dashboard/orders');
-  revalidatePath(`/checkout/payment/${orderId}`);
+  if (!updatedOrder) {
+    /*
+     * The order was no longer in the expected state.
+     * Attempt the same safe payment rollback.
+     */
+    const { error: rollbackError } =
+      await supabase
+        .from('payments')
+        .update({
+          status:
+            'payment_submitted',
+          verified_by: null,
+          verified_at: null,
+          paid_at: null,
+        })
+        .eq('id', payment.id)
+        .eq('status', 'paid');
+
+    if (rollbackError) {
+      console.error(
+        '[PAYMENT VERIFY] ROLLBACK ERROR:',
+        rollbackError,
+      );
+    }
+
+    return {
+      error:
+        'The order was already updated or is no longer awaiting payment.',
+    };
+  }
+
+  revalidatePath(
+    '/admin/orders',
+  );
+
+  revalidatePath(
+    '/admin/dashboard',
+  );
+
+  revalidatePath(
+    '/dashboard/orders',
+  );
+
+  revalidatePath(
+    `/dashboard/orders/${cleanOrderId}`,
+  );
+
+  revalidatePath(
+    `/checkout/payment/${cleanOrderId}`,
+  );
 
   return {
     ok: true,
@@ -367,7 +557,9 @@ export async function adminVerifyPayment(orderId: string) {
  * Admin/staff-only:
  * Send a payment reminder for an unpaid order.
  */
-export async function sendPaymentReminder(orderId: string) {
+export async function sendPaymentReminder(
+  orderId: string,
+) {
   const supabase = createClient();
 
   const {
@@ -380,25 +572,36 @@ export async function sendPaymentReminder(orderId: string) {
     };
   }
 
-  if (!orderId) {
+  const parsedOrderId =
+    validateOrderId(orderId);
+
+  if (!parsedOrderId.success) {
     return {
       error: 'Invalid order.',
     };
   }
 
-  // Server-side staff role check.
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
+  const cleanOrderId =
+    parsedOrderId.data;
+
+  // Server-side role + ACTIVE status check.
+  const { data: profile } =
+    await supabase
+      .from('profiles')
+      .select('role, is_active')
+      .eq('id', user.id)
+      .single();
 
   if (
     !profile ||
-    !PAYMENT_STAFF_ROLES.includes(profile.role)
+    profile.is_active !== true ||
+    !PAYMENT_STAFF_ROLES.includes(
+      profile.role,
+    )
   ) {
     return {
-      error: 'You are not authorized to send payment reminders.',
+      error:
+        'You are not authorized to send payment reminders.',
     };
   }
 
@@ -409,9 +612,9 @@ export async function sendPaymentReminder(orderId: string) {
   } = await supabase
     .from('orders')
     .select(
-      'id, customer_id, payment_status, payment_method'
+      'id, customer_id, payment_status, payment_method',
     )
-    .eq('id', orderId)
+    .eq('id', cleanOrderId)
     .single();
 
   if (orderError || !order) {
@@ -421,9 +624,13 @@ export async function sendPaymentReminder(orderId: string) {
   }
 
   // Don't send reminders for paid orders.
-  if (order.payment_status === 'paid') {
+  if (
+    order.payment_status ===
+    'paid'
+  ) {
     return {
-      error: 'This order has already been paid.',
+      error:
+        'This order has already been paid.',
     };
   }
 
@@ -433,7 +640,9 @@ export async function sendPaymentReminder(orderId: string) {
    * notification service.
    */
 
-  revalidatePath('/admin/orders');
+  revalidatePath(
+    '/admin/orders',
+  );
 
   return {
     ok: true,

@@ -9,42 +9,63 @@ export function ProductQuantitySelector({
   onChange: (next: number) => void;
   maxQuantity: number;
 }) {
-  const atMin = quantity <= 1;
-  const atMax = quantity >= maxQuantity;
+  const safeMaxQuantity = Math.max(
+    1,
+    Math.floor(maxQuantity)
+  );
+
+  const safeQuantity = Math.min(
+    Math.max(1, Math.floor(quantity)),
+    safeMaxQuantity
+  );
+
+  const atMin = safeQuantity <= 1;
+  const atMax = safeQuantity >= safeMaxQuantity;
+
+  const decrease = () => {
+    if (!atMin) {
+      onChange(safeQuantity - 1);
+    }
+  };
+
+  const increase = () => {
+    if (!atMax) {
+      onChange(safeQuantity + 1);
+    }
+  };
 
   return (
     <div
-      className="flex h-10 w-full items-center justify-between rounded-lg border border-gray-200 bg-white sm:w-[112px]"
+      className="flex h-12 w-full items-center justify-between overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm sm:w-[120px]"
       role="group"
       aria-label="Quantity"
     >
       <button
         type="button"
-        onClick={() => onChange(Math.max(1, quantity - 1))}
+        onClick={decrease}
         disabled={atMin}
         aria-label="Decrease quantity"
-        className="flex h-full w-10 shrink-0 items-center justify-center rounded-l-lg text-lg font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
+        className="flex h-full w-12 shrink-0 items-center justify-center text-xl font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        −
+        <span aria-hidden="true">−</span>
       </button>
 
       <span
-        className="min-w-8 flex-1 text-center text-sm font-semibold text-gray-900"
+        className="min-w-10 flex-1 select-none text-center text-base font-semibold tabular-nums text-gray-900"
         aria-live="polite"
+        aria-label={`Quantity ${safeQuantity}`}
       >
-        {quantity}
+        {safeQuantity}
       </span>
 
       <button
         type="button"
-        onClick={() =>
-          onChange(Math.min(maxQuantity, quantity + 1))
-        }
+        onClick={increase}
         disabled={atMax}
         aria-label="Increase quantity"
-        className="flex h-full w-10 shrink-0 items-center justify-center rounded-r-lg text-lg font-medium text-gray-600 transition hover:bg-gray-50 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
+        className="flex h-full w-12 shrink-0 items-center justify-center text-xl font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-30"
       >
-        +
+        <span aria-hidden="true">+</span>
       </button>
     </div>
   );

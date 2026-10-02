@@ -35,6 +35,7 @@ export async function generateMetadata({
   }
 
   const productName = product.name;
+
   const categoryName =
     product.product_categories?.name ||
     product.product_categories?.name_marathi ||
@@ -124,181 +125,204 @@ export default async function ProductDetailPage({
   ]);
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-10">
+    <main className="min-h-screen bg-cream-50">
       <JsonLd data={[productSchema, breadcrumbSchema]} />
 
-      {/* Breadcrumb */}
-      <nav
-        aria-label="Breadcrumb"
-        className="mb-6"
-      >
-        <Link
-          href="/products"
-          className="text-sm text-brand-700 hover:underline"
-        >
-          ← Back to Products
-        </Link>
-      </nav>
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
 
-      {/* Product */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Product image */}
-        <div>
-          <div className="aspect-square rounded-2xl bg-cream-100 overflow-hidden">
-            {product.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={product.image_url}
-                alt={`${product.name} - ${SITE_NAME}`}
-                className="w-full h-full object-cover"
+        {/* Breadcrumb */}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-5 sm:mb-6"
+        >
+          <Link
+            href="/products"
+            className="inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-medium text-brand-700 transition hover:bg-brand-50 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+          >
+            ← Back to Products
+          </Link>
+        </nav>
+
+        {/* Product */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:gap-10">
+
+          {/* Product image */}
+          <div className="min-w-0">
+            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+              <div className="aspect-square w-full overflow-hidden bg-cream-100">
+                {product.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={product.image_url}
+                    alt={`${product.name} - ${SITE_NAME}`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-gray-400">
+                    No image available
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Product information */}
+          <div className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7 lg:p-8">
+
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700 sm:text-sm">
+              Fresh Dairy Product
+            </p>
+
+            <h1 className="mt-2 text-2xl font-bold leading-tight tracking-tight text-gray-900 sm:text-3xl lg:text-4xl">
+              {product.name}
+            </h1>
+
+            {product.name_marathi && (
+              <p className="mt-2 text-sm leading-6 text-gray-500 sm:text-base">
+                {product.name_marathi}
+              </p>
+            )}
+
+            {/* Price */}
+            <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <ProductPrice
+                price={product.selling_price}
+                mrp={product.mrp}
+                size="lg"
               />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-400">
-                No image available
+
+              <span className="text-sm font-medium text-gray-500">
+                /{' '}
+                {formatProductUnit(
+                  product.unit,
+                  product.net_quantity,
+                )}
+              </span>
+            </div>
+
+            {/* Stock */}
+            <div className="mt-4">
+              <StockBadge
+                availableQuantity={product.available_quantity}
+                lowStockThreshold={product.min_stock_level}
+              />
+            </div>
+
+            {/* Description */}
+            {(product.short_description || product.description) && (
+              <div className="mt-5 border-t border-gray-100 pt-5">
+                {product.short_description && (
+                  <p className="font-medium leading-6 text-gray-800">
+                    {product.short_description}
+                  </p>
+                )}
+
+                {product.description && (
+                  <p className="mt-2 text-sm leading-6 text-gray-600 sm:text-base">
+                    {product.description}
+                  </p>
+                )}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Product information */}
-        <div>
-          <p className="text-sm text-gray-500 mb-2">
-            Fresh Dairy Product
-          </p>
+            {/* Product details */}
+            <div className="mt-6 border-t border-gray-100 pt-5">
+              <h2 className="text-sm font-semibold text-gray-900">
+                Product Details
+              </h2>
 
-          <h1 className="text-3xl font-semibold text-gray-900">
-            {product.name}
-          </h1>
+              <dl className="mt-3 divide-y divide-gray-100 text-sm">
+                {product.shelf_life_days && (
+                  <Row
+                    label="Shelf life"
+                    value={`${product.shelf_life_days} day(s)`}
+                  />
+                )}
 
-          {product.name_marathi && (
-            <p className="mt-2 text-base text-gray-500">
-              {product.name_marathi}
-            </p>
-          )}
+                {product.storage_requirements && (
+                  <Row
+                    label="Storage"
+                    value={product.storage_requirements}
+                  />
+                )}
 
-          {/* Price */}
-          <div className="mt-5 flex items-center gap-3 flex-wrap">
-            <ProductPrice
-              price={product.selling_price}
-              mrp={product.mrp}
-              size="lg"
-            />
+                <Row
+                  label="Pack size"
+                  value={formatProductUnit(
+                    product.unit,
+                    product.net_quantity,
+                  )}
+                />
 
-            <span className="text-sm text-gray-500">
-              /{' '}
-              {formatProductUnit(
-                product.unit,
-                product.net_quantity
-              )}
-            </span>
-          </div>
+                <Row
+                  label="SKU"
+                  value={product.sku}
+                />
 
-          {/* Stock */}
-          <div className="mt-4">
-            <StockBadge
-              availableQuantity={product.available_quantity}
-              lowStockThreshold={product.min_stock_level}
-            />
-          </div>
+                {product.product_code && (
+                  <Row
+                    label="Product code"
+                    value={product.product_code}
+                  />
+                )}
 
-          {/* Description */}
-          {(product.short_description || product.description) && (
-            <div className="mt-4">
-              {product.short_description && (
-                <p className="text-gray-800 font-medium leading-6">
-                  {product.short_description}
-                </p>
-              )}
+                <Row
+                  label="Delivery"
+                  value={
+                    product.delivery_available
+                      ? 'Available for delivery'
+                      : 'Not available for delivery'
+                  }
+                />
+              </dl>
+            </div>
 
-              {product.description && (
-                <p className="mt-2 text-gray-700 leading-6">
-                  {product.description}
-                </p>
+            {/* Ordering */}
+            <div className="mt-6 border-t border-gray-100 pt-6">
+              {inStock ? (
+                <ProductOrderControls
+                  product={{
+                    id: product.id,
+                    name: product.name,
+                    name_marathi: product.name_marathi,
+                    category_id: product.category_id,
+                    sku: product.sku,
+                    unit: product.unit,
+                    net_quantity: product.net_quantity,
+                    selling_price: product.selling_price,
+                    mrp: product.mrp,
+                    image_url: product.image_url,
+                    available_quantity: product.available_quantity,
+                    delivery_available: product.delivery_available,
+                    is_active: product.is_active,
+                  }}
+                />
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center rounded-lg bg-gray-100 px-6 py-3 text-sm font-semibold text-gray-400 sm:w-auto"
+                  >
+                    Unavailable
+                  </button>
+
+                  <p className="mt-2 text-xs leading-5 text-gray-500">
+                    This product is currently unavailable for delivery.
+                  </p>
+                </div>
               )}
             </div>
-          )}
 
-          {/* Product details */}
-          <dl className="mt-6 space-y-2 text-sm">
-            {product.shelf_life_days && (
-              <Row
-                label="Shelf life"
-                value={`${product.shelf_life_days} day(s)`}
-              />
-            )}
-
-            {product.storage_requirements && (
-              <Row
-                label="Storage"
-                value={product.storage_requirements}
-              />
-            )}
-
-            <Row
-              label="Pack size"
-              value={formatProductUnit(
-                product.unit,
-                product.net_quantity
-              )}
-            />
-
-            <Row
-              label="SKU"
-              value={product.sku}
-            />
-
-            {product.product_code && (
-              <Row
-                label="Product code"
-                value={product.product_code}
-              />
-            )}
-
-            <Row
-              label="Delivery"
-              value={
-                product.delivery_available
-                  ? 'Available for delivery'
-                  : 'Not available for delivery'
-              }
-            />
-          </dl>
-
-          {/* Ordering */}
-          <div className="mt-6">
-            {inStock ? (
-              <ProductOrderControls
-                product={{
-                  id: product.id,
-                  name: product.name,
-                  name_marathi: product.name_marathi,
-                  category_id: product.category_id,
-                  sku: product.sku,
-                  unit: product.unit,
-                  net_quantity: product.net_quantity,
-                  selling_price: product.selling_price,
-                  mrp: product.mrp,
-                  image_url: product.image_url,
-                  available_quantity: product.available_quantity,
-                  delivery_available: product.delivery_available,
-                  is_active: product.is_active,
-                }}
-              />
-            ) : (
-              <div>
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-full bg-gray-100 text-gray-400 px-6 py-2 text-sm cursor-not-allowed"
-                >
-                  Unavailable
-                </button>
-
-                <p className="mt-2 text-xs text-gray-500">
-                  This product is currently unavailable for delivery.
-                </p>
-              </div>
-            )}
+            {/* Back link */}
+            <div className="mt-5">
+              <Link
+                href="/products"
+                className="inline-flex min-h-11 items-center text-sm font-medium text-gray-600 transition hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+              >
+                ← Continue shopping
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -314,12 +338,12 @@ function Row({
   value: string;
 }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-gray-50 pb-1">
-      <dt className="text-gray-500">
+    <div className="flex min-h-11 items-center justify-between gap-4 py-2.5">
+      <dt className="shrink-0 text-gray-500">
         {label}
       </dt>
 
-      <dd className="text-gray-800 text-right">
+      <dd className="min-w-0 text-right font-medium text-gray-800">
         {value}
       </dd>
     </div>

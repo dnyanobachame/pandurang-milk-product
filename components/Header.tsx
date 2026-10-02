@@ -1,9 +1,17 @@
 'use client';
 
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  ChevronDown,
+  Menu,
+  ShoppingCart,
+  User,
+  X,
+} from 'lucide-react';
+
 import { useAuth } from '@/lib/auth-context';
 import { roleLabel } from '@/lib/role-labels';
 import { homeRouteForRole } from '@/lib/roles';
@@ -14,7 +22,17 @@ const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/products', label: 'Products' },
   { href: '/dashboard', label: 'Track Order' },
-  { href: '/contact', label: 'Contact Us' },
+  { href: '/contact', label: 'Contact' },
+];
+
+const CATEGORY_LINKS = [
+  { href: '/milk', label: 'Milk' },
+  { href: '/cow-milk', label: 'Cow Milk' },
+  { href: '/buffalo-milk', label: 'Buffalo Milk' },
+  { href: '/paneer', label: 'Paneer' },
+  { href: '/curd', label: 'Curd' },
+  { href: '/ghee', label: 'Ghee' },
+  { href: '/dairy-products', label: 'All Dairy Products' },
 ];
 
 export function Header() {
@@ -22,255 +40,526 @@ export function Header() {
   const { items } = useCart();
   const router = useRouter();
 
-  const [menuOpen, setMenuOpen] = useState(false); // account dropdown
-  const [mobileOpen, setMobileOpen] = useState(false); // hamburger
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
+  const [mobileCategoriesOpen, setMobileCategoriesOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
+  const categoriesRef = useRef<HTMLDivElement>(null);
+
   useOnClickOutside(menuRef, () => setMenuOpen(false));
+  useOnClickOutside(categoriesRef, () => setCategoriesOpen(false));
 
-  const cartCount = items.reduce((sum, i) => sum + i.quantity, 0);
-  const initial = (profile?.full_name || user?.email || '?').charAt(0).toUpperCase();
+  const cartCount = items.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
 
-  async function handleLogout() {
-    setMenuOpen(false);
-    setMobileOpen(false);
-    await signOut();
-    router.push('/');
-    router.refresh();
-  }
+  const displayName =
+    profile?.full_name ||
+    user?.email ||
+    'Account';
 
-  const dashboardHref = profile ? homeRouteForRole(profile.role) : '/dashboard';
+  const initial =
+    displayName.trim().charAt(0).toUpperCase() || 'U';
+
+  const dashboardHref = profile
+    ? homeRouteForRole(profile.role)
+    : '/dashboard';
 
   const accountMenuItems = [
     ...(profile?.role === 'admin'
-      ? [{ href: '/admin', label: 'Admin Panel' },
-    { href: '/admin/products', label: 'Product Management' }]
+      ? [
+          {
+            href: '/admin',
+            label: 'Admin Panel',
+          },
+          {
+            href: '/admin/products',
+            label: 'Product Management',
+          },
+        ]
       : []),
-    { href: dashboardHref, label: 'My Dashboard' },
-    { href: '/dashboard/orders', label: 'My Orders' },
-    { href: '/dashboard/settings', label: 'My Profile / Settings' },
-    { href: '/dashboard/addresses', label: 'Addresses' },
-    { href: '/dashboard/notifications', label: 'Notifications' },
-    { href: '/dashboard/support', label: 'Support' },
+
+    {
+      href: dashboardHref,
+      label: 'My Dashboard',
+    },
+    {
+      href: '/dashboard/orders',
+      label: 'My Orders',
+    },
+    {
+      href: '/dashboard/settings',
+      label: 'Profile & Settings',
+    },
+    {
+      href: '/dashboard/addresses',
+      label: 'Addresses',
+    },
+    {
+      href: '/dashboard/notifications',
+      label: 'Notifications',
+    },
+    {
+      href: '/dashboard/support',
+      label: 'Support',
+    },
   ];
+
+  function closeMobileMenu() {
+    setMobileOpen(false);
+    setMobileCategoriesOpen(false);
+  }
+
+  async function handleLogout() {
+    if (loggingOut) return;
+
+    setLoggingOut(true);
+
+    setMenuOpen(false);
+    setMobileOpen(false);
+    setCategoriesOpen(false);
+    setMobileCategoriesOpen(false);
+
+    try {
+      await signOut();
+
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <header className="site-header">
+      {/* Top information bar */}
       <div className="topbar">
         <div className="topbar-inner">
-          <span>Delivering fresh, every morning across Latur District</span>
-          <span className="topbar-sub">Farmer-first. Household-trusted.</span>
+          <span>Fresh milk & dairy products</span>
+
+          <span className="topbar-sub">
+            Serving selected areas of Latur District
+          </span>
         </div>
       </div>
 
+      {/* Main navigation */}
       <div className="navbar">
         <div className="navbar-inner">
-          <Link href="/" className="logo">
+          {/* Logo */}
+          <Link
+            href="/"
+            aria-label="Pandurang Milk Product Home"
+            className="logo"
+          >
             <Image
               src="/logo.png"
               alt="Pandurang Milk Product"
               width={44}
               height={44}
               className="logo-mark"
+              priority
             />
-            <span className="logo-main">Pandurang</span>
-            <span className="logo-sub">Milk Product</span>
+
+            <div className="logo-text">
+              <span className="logo-main">
+                Pandurang
+              </span>
+
+              <span className="logo-sub">
+                Milk Product
+              </span>
+            </div>
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="nav-links hidden md:flex">
+          {/* Desktop navigation */}
+          <nav
+            className="nav-links"
+            aria-label="Main navigation"
+          >
             {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className="nav-link">
+              <Link
+                key={link.href}
+                href={link.href}
+                className="nav-link"
+              >
                 {link.label}
               </Link>
             ))}
+
+            {/* Categories */}
+            <div
+              ref={categoriesRef}
+              className="category-menu"
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setCategoriesOpen(
+                    (value) => !value,
+                  )
+                }
+                aria-haspopup="menu"
+                aria-expanded={categoriesOpen}
+                className="nav-link category-button"
+              >
+                Categories
+
+                <ChevronDown
+                  size={16}
+                  aria-hidden="true"
+                  className={
+                    categoriesOpen
+                      ? 'rotate-180'
+                      : ''
+                  }
+                />
+              </button>
+
+              {categoriesOpen && (
+                <div
+                  role="menu"
+                  className="category-dropdown"
+                >
+                  {CATEGORY_LINKS.map(
+                    (category) => (
+                      <Link
+                        key={category.href}
+                        href={category.href}
+                        role="menuitem"
+                        onClick={() =>
+                          setCategoriesOpen(false)
+                        }
+                        className="category-item"
+                      >
+                        {category.label}
+                      </Link>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
-            <Link href="/cart" className="cart-btn relative">
-              Cart
+          {/* Desktop actions */}
+          <div className="header-actions">
+            {/* Cart */}
+            <Link
+              href="/cart"
+              className="header-cart"
+              aria-label={`Cart${
+                cartCount > 0
+                  ? `, ${cartCount} items`
+                  : ''
+              }`}
+            >
+              <ShoppingCart
+                size={19}
+                aria-hidden="true"
+              />
+
+              <span>Cart</span>
+
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-white text-brand-700 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="cart-count">
                   {cartCount}
                 </span>
               )}
             </Link>
 
+            {/* Account */}
             {loading ? (
-              <div className="w-24 h-9 rounded-full bg-white/20 animate-pulse" />
+              <div className="account-loading">
+                Loading...
+              </div>
             ) : user && profile ? (
-              <div className="relative" ref={menuRef}>
+              <div
+                ref={menuRef}
+                className="account-wrapper"
+              >
                 <button
-                  onClick={() => setMenuOpen((v) => !v)}
+                  type="button"
+                  onClick={() =>
+                    setMenuOpen(
+                      (value) => !value,
+                    )
+                  }
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
-                  className="flex items-center gap-2 bg-white/10 hover:bg-white/20 rounded-full pl-2 pr-3 py-1.5 text-white transition-colors"
+                  className="account-button"
                 >
-                  {profile.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={profile.avatar_url}
-                      alt=""
-                      className="w-7 h-7 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full bg-white text-brand-700 font-semibold flex items-center justify-center text-sm">
-                      {initial}
-                    </span>
-                  )}
-                  <span className="text-sm font-medium max-w-[9rem] truncate">
-                    {profile.full_name}
+                  <span className="account-avatar">
+                    {profile.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={profile.avatar_url}
+                        alt=""
+                        className="account-avatar-image"
+                      />
+                    ) : (
+                      initial
+                    )}
                   </span>
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    className={`transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-                  >
-                    <path d="M5.5 7.5l4.5 5 4.5-5" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+
+                  <span className="account-name">
+                    {displayName}
+                  </span>
+
+                  <ChevronDown
+                    size={15}
+                    aria-hidden="true"
+                    className={
+                      menuOpen
+                        ? 'rotate-180'
+                        : ''
+                    }
+                  />
                 </button>
 
                 {menuOpen && (
                   <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl2 shadow-lg border border-gray-100 py-2 text-gray-800 z-50"
+                    className="account-dropdown"
                   >
-                    <div className="px-4 py-2 border-b border-gray-100 mb-1">
-                      <p className="text-sm font-semibold truncate">{profile.full_name}</p>
-                      <span className="inline-block mt-1 text-xs font-medium text-brand-700 bg-brand-50 rounded-full px-2 py-0.5">
-                        {roleLabel(profile.role)}
+                    <div className="account-info">
+                      <p>
+                        {displayName}
+                      </p>
+
+                      <span>
+                        {roleLabel(
+                          profile.role,
+                        )}
                       </span>
                     </div>
-                    {accountMenuItems.map((item) => (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        role="menuitem"
-                        onClick={() => setMenuOpen(false)}
-                        className="block px-4 py-2 text-sm hover:bg-gray-50"
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
+
+                    {accountMenuItems.map(
+                      (item) => (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          role="menuitem"
+                          onClick={() =>
+                            setMenuOpen(false)
+                          }
+                          className="account-item"
+                        >
+                          {item.label}
+                        </Link>
+                      ),
+                    )}
+
                     <button
+                      type="button"
                       role="menuitem"
                       onClick={handleLogout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 border-t border-gray-100 mt-1"
+                      disabled={loggingOut}
+                      className="logout-button"
                     >
-                      Logout
+                      {loggingOut
+                        ? 'Signing out...'
+                        : 'Logout'}
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="auth-actions">
                 <Link
                   href="/auth/login"
-                  className="rounded-full bg-white text-brand-700 font-semibold px-4 py-1.5 text-sm hover:bg-cream-50 transition-colors"
+                  className="login-button"
                 >
                   Login
                 </Link>
+
                 <Link
                   href="/auth/register"
-                  className="rounded-full border border-white text-white font-medium px-4 py-1.5 text-sm hover:bg-white/10 transition-colors"
+                  className="register-button"
                 >
-                  Create Account
+                  Register
                 </Link>
               </div>
             )}
           </div>
 
-          {/* Mobile controls */}
-          <div className="flex md:hidden items-center gap-2">
-            <Link href="/cart" className="cart-btn relative">
-              Cart
+          {/* Mobile actions */}
+          <div className="mobile-actions">
+            <Link
+              href="/cart"
+              className="mobile-cart"
+              aria-label={`Cart${
+                cartCount > 0
+                  ? `, ${cartCount} items`
+                  : ''
+              }`}
+            >
+              <ShoppingCart
+                size={20}
+                aria-hidden="true"
+              />
+
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-white text-brand-700 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="mobile-cart-count">
                   {cartCount}
                 </span>
               )}
             </Link>
+
             <button
-              aria-label="Menu"
-              onClick={() => setMobileOpen((v) => !v)}
-              className="w-10 h-10 flex items-center justify-center rounded-full text-white"
+              type="button"
+              onClick={() =>
+                setMobileOpen(
+                  (value) => !value,
+                )
+              }
+              aria-label={
+                mobileOpen
+                  ? 'Close menu'
+                  : 'Open menu'
+              }
+              aria-expanded={mobileOpen}
+              className="mobile-menu-button"
             >
               {mobileOpen ? (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-                </svg>
+                <X size={23} />
               ) : (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
-                </svg>
+                <Menu size={23} />
               )}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu panel */}
+      {/* Mobile navigation */}
       {mobileOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 shadow-lg">
-          <nav className="flex flex-col py-2">
+        <div className="mobile-menu">
+          <nav
+            aria-label="Mobile navigation"
+            className="mobile-nav"
+          >
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={closeMobileMenu}
+                className="mobile-nav-item"
               >
                 {link.label}
               </Link>
             ))}
 
-            <div className="border-t border-gray-100 my-1" />
+            {/* Mobile categories */}
+            <button
+              type="button"
+              onClick={() =>
+                setMobileCategoriesOpen(
+                  (value) => !value,
+                )
+              }
+              aria-expanded={
+                mobileCategoriesOpen
+              }
+              className="mobile-category-button"
+            >
+              <span>Categories</span>
 
+              <ChevronDown
+                size={18}
+                className={
+                  mobileCategoriesOpen
+                    ? 'rotate-180'
+                    : ''
+                }
+              />
+            </button>
+
+            {mobileCategoriesOpen && (
+              <div className="mobile-categories">
+                {CATEGORY_LINKS.map(
+                  (category) => (
+                    <Link
+                      key={category.href}
+                      href={category.href}
+                      onClick={closeMobileMenu}
+                      className="mobile-category-item"
+                    >
+                      {category.label}
+                    </Link>
+                  ),
+                )}
+              </div>
+            )}
+
+            <div className="mobile-divider" />
+
+            {/* Mobile account */}
             {loading ? (
-              <div className="px-5 py-3 text-sm text-gray-400">Loading…</div>
+              <div className="mobile-loading">
+                Loading...
+              </div>
             ) : user && profile ? (
               <>
-                <div className="px-5 py-3 flex items-center gap-3">
-                  <span className="w-9 h-9 rounded-full bg-brand-100 text-brand-700 font-semibold flex items-center justify-center">
+                <div className="mobile-account">
+                  <span className="mobile-account-avatar">
                     {initial}
                   </span>
+
                   <div>
-                    <p className="text-sm font-semibold">{profile.full_name}</p>
-                    <p className="text-xs text-gray-500">{roleLabel(profile.role)}</p>
+                    <p>
+                      {displayName}
+                    </p>
+
+                    <span>
+                      {roleLabel(
+                        profile.role,
+                      )}
+                    </span>
                   </div>
                 </div>
-                {accountMenuItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className="px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+
+                {accountMenuItems.map(
+                  (item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                      className="mobile-nav-item"
+                    >
+                      {item.label}
+                    </Link>
+                  ),
+                )}
+
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="text-left px-5 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
+                  disabled={loggingOut}
+                  className="mobile-logout"
                 >
-                  Logout
+                  {loggingOut
+                    ? 'Signing out...'
+                    : 'Logout'}
                 </button>
               </>
             ) : (
-              <div className="flex gap-2 px-5 py-3">
+              <div className="mobile-auth">
                 <Link
                   href="/auth/login"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 text-center rounded-full bg-brand-600 text-white font-semibold px-4 py-2 text-sm"
+                  onClick={closeMobileMenu}
+                  className="mobile-login"
                 >
                   Login
                 </Link>
+
                 <Link
                   href="/auth/register"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 text-center rounded-full border border-brand-600 text-brand-700 font-medium px-4 py-2 text-sm"
+                  onClick={closeMobileMenu}
+                  className="mobile-register"
                 >
                   Create Account
                 </Link>
@@ -282,5 +571,3 @@ export function Header() {
     </header>
   );
 }
-
-

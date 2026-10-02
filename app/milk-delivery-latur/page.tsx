@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { createPageMetadata } from '@/lib/seo';
+import { absoluteUrl, createPageMetadata } from '@/lib/seo';
 import { JsonLd } from '@/components/JsonLd';
 
 export const metadata = createPageMetadata({
@@ -32,13 +32,13 @@ export default function MilkDeliveryLaturPage() {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: 'https://pandurangmilk.in/',
+        item: absoluteUrl('/'),
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Milk Delivery in Latur',
-        item: 'https://pandurangmilk.in/milk-delivery-latur',
+        item: absoluteUrl('/milk-delivery-latur'),
       },
     ],
   };
@@ -50,7 +50,7 @@ export default function MilkDeliveryLaturPage() {
     provider: {
       '@type': 'Organization',
       name: 'Pandurang Milk Product',
-      url: 'https://pandurangmilk.in',
+      url: absoluteUrl('/'),
       telephone: '+91-7028591828',
     },
     areaServed: {
@@ -58,7 +58,7 @@ export default function MilkDeliveryLaturPage() {
       name: 'Latur District',
     },
     serviceType: 'Milk and dairy product delivery',
-    url: 'https://pandurangmilk.in/milk-delivery-latur',
+    url: absoluteUrl('/milk-delivery-latur'),
   };
 
   return (

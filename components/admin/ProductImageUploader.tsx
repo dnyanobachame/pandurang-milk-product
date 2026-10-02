@@ -69,32 +69,56 @@ export function ProductImageUploader({
     <div>
       {preview ? (
         <div className="space-y-3">
-          <div className="w-full aspect-video rounded-xl2 overflow-hidden border border-gray-200 bg-gray-50">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Product preview" className="w-full h-full object-cover" />
+            <img
+              src={preview}
+              alt="Product preview"
+              className="h-full w-full object-cover"
+            />
+
+            {uploading ? (
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-slate-950/45"
+                aria-live="polite"
+              >
+                <div className="rounded-xl bg-white px-4 py-3 text-center shadow-lg">
+                  <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-red-600" />
+                  <p className="mt-2 text-xs font-semibold text-slate-700">
+                    Uploading image…
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </div>
-          <div className="flex gap-2">
+
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              className="rounded-full border border-gray-300 px-4 py-1.5 text-sm font-medium hover:bg-gray-50"
+              disabled={uploading}
+              className="min-h-[44px] rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Replace
+              Replace image
             </button>
             <button
               type="button"
               onClick={() => {
+                if (uploading) return;
                 setPreview(null);
+                setError(null);
                 onUploaded('', '');
               }}
-              className="rounded-full border border-red-200 text-red-600 px-4 py-1.5 text-sm font-medium hover:bg-red-50"
+              disabled={uploading}
+              className="min-h-[44px] rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Remove
+              Remove image
             </button>
           </div>
         </div>
       ) : (
-        <div
+        <button
+          type="button"
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -102,13 +126,34 @@ export function ProductImageUploader({
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
-          className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl2 py-10 px-4 cursor-pointer text-center transition-colors ${
-            dragOver ? 'border-brand-500 bg-brand-50' : 'border-gray-300 hover:bg-gray-50'
-          }`}
+          disabled={uploading}
+          className={`flex min-h-[190px] w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed px-4 py-8 text-center transition ${
+            dragOver
+              ? 'border-red-500 bg-red-50'
+              : 'border-slate-300 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-50'
+          } ${uploading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}
+          aria-label="Upload product image"
         >
-          <p className="text-sm font-medium text-gray-700">Drag &amp; Drop Product Image</p>
-          <p className="text-xs text-gray-500">or click to choose a file — JPG, PNG or WEBP, up to 5 MB</p>
-        </div>
+          <span
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl text-xl ${
+              dragOver ? 'bg-red-100 text-red-600' : 'bg-white text-slate-500 shadow-sm'
+            }`}
+            aria-hidden="true"
+          >
+            🖼️
+          </span>
+          <span>
+            <span className="block text-sm font-semibold text-slate-800">
+              {dragOver ? 'Drop image here' : 'Upload product image'}
+            </span>
+            <span className="mt-1 block text-xs leading-5 text-slate-500">
+              Drag &amp; drop or click to choose a file
+            </span>
+            <span className="mt-1 block text-[11px] text-slate-400">
+              JPG, PNG or WEBP · Maximum 5 MB
+            </span>
+          </span>
+        </button>
       )}
 
       <input
@@ -118,13 +163,25 @@ export function ProductImageUploader({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) handleFile(file);
+          if (file) void handleFile(file);
           e.target.value = '';
         }}
       />
 
-      {uploading && <p className="text-xs text-gray-500 mt-2">Uploading…</p>}
-      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+      {uploading && !preview ? (
+        <p className="mt-2 text-xs font-medium text-slate-500" aria-live="polite">
+          Uploading image…
+        </p>
+      ) : null}
+
+      {error ? (
+        <p
+          className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium leading-5 text-red-700"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,8 +1,14 @@
 /**
- * Central definition of application roles and which route groups
- * each role is allowed into. Mirrors the `app_role` enum in
- * supabase/01_schema.sql — keep these in sync.
+ * Central definition of application roles and route access.
+ *
+ * Keep APP_ROLES in sync with the Supabase app_role enum.
+ *
+ * Security model:
+ * 1. UI/sidebar hides modules the role does not need.
+ * 2. middleware.ts blocks direct URL access.
+ * 3. Server actions + Supabase RLS remain the final authorization layer.
  */
+
 export const APP_ROLES = [
   'admin',
   'production_manager',
@@ -22,70 +28,309 @@ export const APP_ROLES = [
 export type AppRole = (typeof APP_ROLES)[number];
 
 /**
- * Route prefix -> roles allowed to access it. Checked in middleware.ts.
- * `admin` is implicitly allowed everywhere except the customer-only cart
- * (an admin browsing as a shopper is out of scope for v1).
+ * Route prefix -> roles allowed to access the route.
+ *
+ * IMPORTANT:
+ * Do not add a broad `/admin` permission for operational roles.
+ * Every important Admin module gets an explicit permission.
+ *
+ * Longest matching prefix wins in canAccess().
  */
 export const ROUTE_ACCESS: Record<string, AppRole[]> = {
-  '/admin': ['admin', 'sales_manager', 'accountant', 'customer_support'],
-  // Matches the products_staff_write RLS policy (02_rls.sql) and the
-  // role check in app/actions/products.ts — keep these three in sync.
-  '/admin/products': ['admin', 'sales_manager', 'inventory_manager'],
-  '/admin/production/batches': [
-    'admin', 'production_manager', 'production_staff', 'quality_control',
-    'packing_manager', 'packing_staff',
+  // ============================================================
+  // ADMIN DASHBOARD
+  // ============================================================
+
+  '/admin/dashboard': [
+    'admin',
+    'sales_manager',
+    'accountant',
+    'customer_support',
   ],
-  '/admin/production': ['admin', 'production_manager', 'production_staff', 'quality_control'],
-  '/admin/inventory': ['admin', 'inventory_manager'],
-  '/admin/delivery': ['admin', 'delivery_manager'],
-  '/admin/suppliers': ['admin', 'production_manager', 'accountant'],
-  '/admin/traceability': ['admin', 'sales_manager', 'customer_support', 'inventory_manager', 'production_manager'],
-  '/admin/expenses': ['admin', 'accountant'],
-  '/admin/reports': ['admin', 'accountant', 'sales_manager'],
-  '/admin/settings': ['admin'],
-  '/admin/users': ['admin'],
-  '/packing': ['admin', 'packing_manager', 'packing_staff'],
-  '/delivery': ['admin', 'delivery_manager', 'delivery_partner'],
-  '/dashboard': ['customer'], // customer account area
+
+  // ============================================================
+  // ADMIN USER / SYSTEM MANAGEMENT
+  // ============================================================
+
+  '/admin/users': [
+    'admin',
+  ],
+
+  '/admin/settings': [
+    'admin',
+  ],
+
+  // ============================================================
+  // PRODUCTS
+  // ============================================================
+
+  '/admin/products': [
+    'admin',
+    'sales_manager',
+    'inventory_manager',
+  ],
+
+  // ============================================================
+  // PRODUCTION
+  // ============================================================
+
+  '/admin/production/collections': [
+    'admin',
+    'production_manager',
+    'production_staff',
+  ],
+
+  '/admin/production/batches': [
+    'admin',
+    'production_manager',
+    'production_staff',
+    'quality_control',
+    'packing_manager',
+    'packing_staff',
+  ],
+
+  '/admin/production/quality': [
+    'admin',
+    'production_manager',
+    'quality_control',
+  ],
+
+  '/admin/production': [
+    'admin',
+    'production_manager',
+    'production_staff',
+    'quality_control',
+  ],
+
+  // ============================================================
+  // INVENTORY
+  // ============================================================
+
+  '/admin/inventory': [
+    'admin',
+    'inventory_manager',
+  ],
+
+  // ============================================================
+  // SUPPLIERS
+  // ============================================================
+
+  '/admin/suppliers': [
+    'admin',
+    'production_manager',
+    'accountant',
+  ],
+
+  // ============================================================
+  // ORDERS / SALES
+  // ============================================================
+
+  '/admin/orders': [
+    'admin',
+    'sales_manager',
+    'customer_support',
+    'accountant',
+  ],
+
+  // ============================================================
+  // DELIVERY
+  // ============================================================
+
+  '/admin/delivery/areas': [
+    'admin',
+    'delivery_manager',
+  ],
+
+  '/admin/delivery': [
+    'admin',
+    'delivery_manager',
+  ],
+
+  // ============================================================
+  // EXPENSES / FINANCE
+  // ============================================================
+
+  '/admin/expenses': [
+    'admin',
+    'accountant',
+  ],
+
+  '/admin/reports': [
+    'admin',
+    'accountant',
+    'sales_manager',
+  ],
+
+  // ============================================================
+  // TRACEABILITY
+  // ============================================================
+
+  '/admin/traceability': [
+    'admin',
+    'production_manager',
+    'inventory_manager',
+    'sales_manager',
+    'customer_support',
+  ],
+
+  // ============================================================
+  // WHATSAPP / CUSTOMER COMMUNICATION
+  // ============================================================
+
+  '/admin/whatsapp': [
+    'admin',
+    'sales_manager',
+    'customer_support',
+  ],
+
+  // ============================================================
+  // PACKING
+  // ============================================================
+
+  '/packing': [
+    'admin',
+    'packing_manager',
+    'packing_staff',
+  ],
+
+  // ============================================================
+  // DELIVERY PARTNER
+  // ============================================================
+
+  '/delivery': [
+    'admin',
+    'delivery_manager',
+    'delivery_partner',
+  ],
+
+  // ============================================================
+  // CUSTOMER AREA
+  // ============================================================
+
+  '/dashboard': [
+    'customer',
+  ],
 };
 
-/** Returns true if `role` may access `pathname` per ROUTE_ACCESS. */
-export function canAccess(pathname: string, role: AppRole): boolean {
-  if (role === 'admin') return true;
+/**
+ * Returns true if the role can access the requested pathname.
+ *
+ * Rules:
+ *
+ * - admin has full application access.
+ * - More-specific route prefixes override broader prefixes.
+ * - Unknown /admin routes are DENIED for non-admin users.
+ * - Unknown public routes remain accessible because middleware
+ *   handles authentication/public-route decisions separately.
+ */
+export function canAccess(
+  pathname: string,
+  role: AppRole
+): boolean {
+  // Admin has full administrative access.
+  if (role === 'admin') {
+    return true;
+  }
 
   const matches = Object.keys(ROUTE_ACCESS)
-    .filter((prefix) => pathname.startsWith(prefix))
-    // longest prefix wins so /admin/inventory doesn't fall back to the
-    // looser /admin rule
+    .filter((prefix) => {
+      return (
+        pathname === prefix ||
+        pathname.startsWith(`${prefix}/`)
+      );
+    })
     .sort((a, b) => b.length - a.length);
 
-  if (matches.length === 0) return true; // unrestricted route (public pages)
+  /*
+   * If this is an Admin route but there is no explicit rule,
+   * deny it rather than accidentally granting access.
+   */
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    if (matches.length === 0) {
+      return false;
+    }
+  }
+
+  /*
+   * Same protection for operational areas.
+   */
+  if (pathname === '/packing' || pathname.startsWith('/packing/')) {
+    if (matches.length === 0) {
+      return false;
+    }
+  }
+
+  if (
+    pathname === '/delivery' ||
+    pathname.startsWith('/delivery/')
+  ) {
+    if (matches.length === 0) {
+      return false;
+    }
+  }
+
+  if (
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/')
+  ) {
+    if (matches.length === 0) {
+      return false;
+    }
+  }
+
+  /*
+   * Routes without an authorization rule are public/unrestricted.
+   */
+  if (matches.length === 0) {
+    return true;
+  }
+
   return ROUTE_ACCESS[matches[0]].includes(role);
 }
 
-/** Where to send a user immediately after login, based on their role. */
-export function homeRouteForRole(role: AppRole): string {
+/**
+ * Default landing page after login.
+ */
+export function homeRouteForRole(
+  role: AppRole
+): string {
   switch (role) {
     case 'admin':
       return '/admin/dashboard';
+
     case 'production_manager':
+      return '/admin/production';
+
     case 'production_staff':
+      return '/admin/production';
+
     case 'quality_control':
       return '/admin/production';
+
     case 'packing_manager':
+      return '/packing';
+
     case 'packing_staff':
       return '/packing';
+
     case 'inventory_manager':
       return '/admin/inventory';
+
     case 'sales_manager':
+      return '/admin/dashboard';
+
     case 'accountant':
       return '/admin/dashboard';
+
     case 'customer_support':
       return '/admin/dashboard';
+
     case 'delivery_manager':
       return '/admin/delivery';
+
     case 'delivery_partner':
       return '/delivery';
+
     case 'customer':
     default:
       return '/dashboard';

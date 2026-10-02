@@ -2,9 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 import { Providers } from './providers';
-import { Header } from '@/components/Header';
-import { MobileBottomNav } from '@/components/MobileBottomNav';
-import { WhatsAppFloatingButton } from '@/components/WhatsAppFloatingButton';
+import { RouteChrome } from '@/components/RouteChrome';
+
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_KEYWORDS,
@@ -70,15 +69,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-cream-50 text-gray-900 antialiased">
         <Providers>
-          <Header />
-
-          <div className="pb-16 md:pb-0">
-            {children}
-          </div>
-
-          <MobileBottomNav />
-
-          <WhatsAppFloatingButton />
+          <RouteChrome>{children}</RouteChrome>
         </Providers>
       </body>
     </html>

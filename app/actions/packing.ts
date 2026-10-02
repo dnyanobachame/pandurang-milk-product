@@ -2,8 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
 
-const PACKING_ROLES = ['admin', 'packing_manager', 'packing_staff'];
+const PACKING_ROLES = [
+  'admin',
+  'packing_manager',
+  'packing_staff',
+];
 
 const CHECKLIST_KEYS = [
   'correct_customer',
@@ -16,6 +21,15 @@ const CHECKLIST_KEYS = [
   'delivery_label_attached',
 ] as const;
 
+const TaskIdSchema = z.string().uuid();
+
+const ChecklistKeySchema = z.enum(
+  CHECKLIST_KEYS,
+);
+
+const ChecklistCheckedSchema =
+  z.boolean();
+
 async function requirePackingStaff() {
   const supabase = createClient();
 
@@ -24,20 +38,38 @@ async function requirePackingStaff() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: 'Please sign in again.' as const };
+    return {
+      error: 'Please sign in again.' as const,
+    };
   }
 
+  /*
+   * Load both role and active status.
+   *
+   * An inactive staff account must not be able to perform
+   * packing operations even if its Auth session still exists.
+   */
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_active')
     .eq('id', user.id)
     .single();
 
-  if (!profile || !PACKING_ROLES.includes(profile.role)) {
-    return { error: 'You are not authorized to do this.' as const };
+  if (
+    !profile ||
+    profile.is_active !== true ||
+    !PACKING_ROLES.includes(profile.role)
+  ) {
+    return {
+      error:
+        'You are not authorized to do this.' as const,
+    };
   }
 
-  return { supabase, user };
+  return {
+    supabase,
+    user,
+  };
 }
 
 /**
@@ -49,9 +81,39 @@ async function requirePackingStaff() {
 export async function toggleChecklistItem(
   taskId: string,
   key: (typeof CHECKLIST_KEYS)[number],
-  checked: boolean
+  checked: boolean,
 ) {
-  const auth = await requirePackingStaff();
+  const parsedTaskId =
+    TaskIdSchema.safeParse(taskId);
+
+  if (!parsedTaskId.success) {
+    return {
+      error: 'Invalid packing task.',
+    };
+  }
+
+  const parsedKey =
+    ChecklistKeySchema.safeParse(key);
+
+  if (!parsedKey.success) {
+    return {
+      error: 'Invalid checklist item.',
+    };
+  }
+
+  const parsedChecked =
+    ChecklistCheckedSchema.safeParse(
+      checked,
+    );
+
+  if (!parsedChecked.success) {
+    return {
+      error: 'Invalid checklist value.',
+    };
+  }
+
+  const auth =
+    await requirePackingStaff();
 
   if ('error' in auth) {
     return auth;
@@ -59,19 +121,35 @@ export async function toggleChecklistItem(
 
   const { supabase } = auth;
 
-  const { data: task, error: taskError } = await supabase
+  const {
+    data: task,
+    error: taskError,
+  } = await supabase
     .from('packing_tasks')
     .select('checklist, status')
-    .eq('id', taskId)
+    .eq('id', parsedTaskId.data)
     .single();
 
   if (taskError || !task) {
-    return { error: 'Task not found.' };
+    return {
+      error: 'Task not found.',
+    };
+  }
+
+  if (task.status === 'packed') {
+    return {
+      error:
+        'This packing task is already completed.',
+    };
   }
 
   const checklist = {
-    ...((task.checklist as Record<string, boolean>) ?? {}),
-    [key]: checked,
+    ...((task.checklist as Record<
+      string,
+      boolean
+    >) ?? {}),
+    [parsedKey.data]:
+      parsedChecked.data,
   };
 
   const nextStatus =
@@ -79,25 +157,44 @@ export async function toggleChecklistItem(
       ? 'packing'
       : task.status;
 
-  const { error } = await supabase
+  const {
+    data: updatedTask,
+    error,
+  } = await supabase
     .from('packing_tasks')
     .update({
       checklist,
       status: nextStatus,
     })
-    .eq('id', taskId);
+    .eq('id', parsedTaskId.data)
+    .eq('status', task.status)
+    .select('id')
+    .maybeSingle();
 
   if (error) {
-    console.error('TOGGLE PACKING CHECKLIST ERROR:', error);
+    console.error(
+      'TOGGLE PACKING CHECKLIST ERROR:',
+      error,
+    );
 
     return {
-      error: 'Could not save checklist progress.',
+      error:
+        'Could not save checklist progress.',
+    };
+  }
+
+  if (!updatedTask) {
+    return {
+      error:
+        'This packing task was updated by someone else. Please refresh and try again.',
     };
   }
 
   revalidatePath('/packing');
 
-  return { ok: true };
+  return {
+    ok: true,
+  };
 }
 
 /**
@@ -111,8 +208,20 @@ export async function toggleChecklistItem(
  * This prevents the previous bug where the task/order was marked
  * packed before inventory validation completed.
  */
-export async function markTaskPacked(taskId: string) {
-  const auth = await requirePackingStaff();
+export async function markTaskPacked(
+  taskId: string,
+) {
+  const parsedTaskId =
+    TaskIdSchema.safeParse(taskId);
+
+  if (!parsedTaskId.success) {
+    return {
+      error: 'Invalid packing task.',
+    };
+  }
+
+  const auth =
+    await requirePackingStaff();
 
   if ('error' in auth) {
     return auth;
@@ -124,16 +233,21 @@ export async function markTaskPacked(taskId: string) {
    * Fetch the task first so we can validate the checklist
    * before calling the transactional database function.
    */
-  const { data: task, error: taskFetchError } = await supabase
+  const {
+    data: task,
+    error: taskFetchError,
+  } = await supabase
     .from('packing_tasks')
-    .select('checklist, order_id, status')
-    .eq('id', taskId)
+    .select(
+      'checklist, order_id, status',
+    )
+    .eq('id', parsedTaskId.data)
     .single();
 
   if (taskFetchError || !task) {
     console.error(
       'PACKING TASK FETCH ERROR:',
-      taskFetchError
+      taskFetchError,
     );
 
     return {
@@ -143,7 +257,8 @@ export async function markTaskPacked(taskId: string) {
 
   if (task.status === 'packed') {
     return {
-      error: 'This order is already packed.',
+      error:
+        'This order is already packed.',
     };
   }
 
@@ -151,11 +266,16 @@ export async function markTaskPacked(taskId: string) {
    * Validate all required checklist items.
    */
   const checklist =
-    (task.checklist as Record<string, boolean>) ?? {};
+    (task.checklist as Record<
+      string,
+      boolean
+    >) ?? {};
 
-  const complete = CHECKLIST_KEYS.every(
-    (key) => checklist[key] === true
-  );
+  const complete =
+    CHECKLIST_KEYS.every(
+      (key) =>
+        checklist[key] === true,
+    );
 
   if (!complete) {
     return {
@@ -168,7 +288,9 @@ export async function markTaskPacked(taskId: string) {
    * Generate a unique package number.
    */
   const packageNumber =
-    `PKG-${Date.now().toString(36).toUpperCase()}`;
+    `PKG-${Date.now()
+      .toString(36)
+      .toUpperCase()}`;
 
   /*
    * IMPORTANT:
@@ -189,19 +311,24 @@ export async function markTaskPacked(taskId: string) {
    * If any operation fails, PostgreSQL rolls back the
    * complete transaction.
    */
-  const { data, error } = await supabase.rpc(
+  const {
+    data,
+    error,
+  } = await supabase.rpc(
     'pack_order_transaction',
     {
-      p_task_id: taskId,
+      p_task_id:
+        parsedTaskId.data,
       p_packed_by: user.id,
-      p_package_number: packageNumber,
-    }
+      p_package_number:
+        packageNumber,
+    },
   );
 
   if (error) {
     console.error(
       'PACK ORDER TRANSACTION ERROR:',
-      error
+      error,
     );
 
     return {
@@ -232,9 +359,15 @@ export async function markTaskPacked(taskId: string) {
    * Refresh all relevant pages after successful packing.
    */
   revalidatePath('/packing');
-  revalidatePath('/admin/inventory');
-  revalidatePath('/admin/orders');
-  revalidatePath(`/dashboard/orders/${task.order_id}`);
+  revalidatePath(
+    '/admin/inventory',
+  );
+  revalidatePath(
+    '/admin/orders',
+  );
+  revalidatePath(
+    `/dashboard/orders/${task.order_id}`,
+  );
 
   return {
     ok: true,

@@ -1,22 +1,24 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@/lib/supabase/server';
-
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  'https://pandurangmilk.in';
+import { SITE_URL } from '@/lib/seo';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const supabase = createClient();
 
-  const { data: products } = await supabase
+  const { data: products, error } = await supabase
     .from('products')
     .select('id, updated_at, is_active')
     .eq('is_active', true);
+
+  if (error) {
+    console.error('Failed to load products for sitemap:', error);
+  }
 
   const now = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
     {
+      // Main website URL
       url: SITE_URL,
       lastModified: now,
       changeFrequency: 'weekly',

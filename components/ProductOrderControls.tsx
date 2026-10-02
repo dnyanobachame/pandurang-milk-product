@@ -9,7 +9,7 @@ import { ProductWhatsAppButton } from './ProductWhatsAppButton';
 /**
  * Product ordering controls.
  *
- * Quantity is shared between Add to Cart and WhatsApp ordering
+ * The selected quantity is shared between Add to Cart and WhatsApp
  * so both actions always use the same quantity shown to the customer.
  */
 export function ProductOrderControls({
@@ -25,13 +25,40 @@ export function ProductOrderControls({
 
   if (outOfStock) {
     return (
-      <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-center">
-        <span className="text-xs font-medium text-gray-500">
+      <div
+        className="mt-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 text-center"
+        role="status"
+        aria-label={`${product.name} is currently unavailable`}
+      >
+        <span className="text-sm font-medium text-gray-500">
           Currently unavailable
         </span>
       </div>
     );
   }
+
+  const maxQuantity = Math.max(
+    1,
+    Math.floor(product.available_quantity)
+  );
+
+  const safeQuantity = Math.min(
+    Math.max(1, Math.floor(quantity)),
+    maxQuantity
+  );
+
+  const handleQuantityChange = (nextQuantity: number) => {
+    if (!Number.isFinite(nextQuantity)) {
+      return;
+    }
+
+    const normalizedQuantity = Math.min(
+      Math.max(1, Math.floor(nextQuantity)),
+      maxQuantity
+    );
+
+    setQuantity(normalizedQuantity);
+  };
 
   return (
     <div className="w-full min-w-0">
@@ -40,9 +67,9 @@ export function ProductOrderControls({
         {/* Quantity selector */}
         <div className="w-full shrink-0 sm:w-auto">
           <ProductQuantitySelector
-            quantity={quantity}
-            onChange={setQuantity}
-            maxQuantity={product.available_quantity}
+            quantity={safeQuantity}
+            onChange={handleQuantityChange}
+            maxQuantity={maxQuantity}
           />
         </div>
 
@@ -50,17 +77,17 @@ export function ProductOrderControls({
         <div className="min-w-0 flex-1">
           <AddToCartButton
             product={product}
-            quantity={quantity}
+            quantity={safeQuantity}
           />
         </div>
       </div>
 
-      {/* WhatsApp */}
+      {/* WhatsApp ordering */}
       <div className="mt-2.5 w-full min-w-0">
         <ProductWhatsAppButton
           name={product.name}
           price={product.selling_price}
-          quantity={quantity}
+          quantity={safeQuantity}
         />
       </div>
     </div>

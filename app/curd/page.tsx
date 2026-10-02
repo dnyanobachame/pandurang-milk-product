@@ -4,7 +4,7 @@ import { ProductOrderControls } from '@/components/ProductOrderControls';
 import { ProductPrice } from '@/components/ProductPrice';
 import { StockBadge } from '@/components/StockBadge';
 import { formatProductUnit } from '@/lib/format-unit';
-import { createPageMetadata } from '@/lib/seo';
+import { absoluteUrl, createPageMetadata } from '@/lib/seo';
 import type { Product } from '@/lib/types';
 import { JsonLd } from '@/components/JsonLd';
 
@@ -58,19 +58,19 @@ export default async function CurdPage() {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: 'https://pandurangmilk.in/',
+        item: absoluteUrl('/'),
       },
       {
         '@type': 'ListItem',
         position: 2,
         name: 'Products',
-        item: 'https://pandurangmilk.in/products',
+        item: absoluteUrl('/products'),
       },
       {
         '@type': 'ListItem',
         position: 3,
         name: 'Curd',
-        item: 'https://pandurangmilk.in/curd',
+        item: absoluteUrl('/curd'),
       },
     ],
   };
